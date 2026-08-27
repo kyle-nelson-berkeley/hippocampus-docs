@@ -23,11 +23,9 @@ users:
       # false -> allow password login
       lock_passwd: false
       shell: /bin/bash
-      plain_text_passwd: "hippocampus"
+      # plain_text_passwd: "<set-your-own-password>"
       ssh_authorized_keys:
-      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF0xs6V9Lp2xzh/+hs+S919KpwAj9VHWO5NeHEuTYTpQ thies.lennart.alff@tuhh.de
-      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDXZYQ3V6tmAQ7RhfCkmy9406FmKKgAVF0qDkeDJ7XroyYC10kLyEOWXFMbemqrQU3SHJ2ly0ujizZuJLtEYY60dWBCzIG1jHenPX7az0Vf/0Mj5m7lyttt/81RblfLzIDrFlFmdY/GI7fBB9IaMiFNQfTEV2IP7SsGQrrB8Ki7FkoHKZvV9iVn7+taO+g/MLs17JTtZICkTGZpzgxJfQepZMNt2/D5G7eo5YeTUnGT5SxidTxkhjcVqepdriDfy1lBZ7j/bD4tXh17024Pj/GI3gAO+CU67/mAvujaoDm2/LmiRkNvPYsSF1wyDVhfAu+Wdk/g/pbOAuas6boiQvPAM64I7cdjr2yOsmEJoADfaO2fxQHCwR7eW+gz2vY35XDdaAHfxGqTlLAvmS2rMjvKRPbC6chCyfozoBVQq2jZ/vq3IqqzLDt8Mb7LyiLm0ohxnD6o/8AbAOPL1un2mFm3kVYfIKuP00YrcBb4lDUDdE1YoxFlEeqGiTxsUIoiW0hyWmVRQa6aHpZte8AMoPev2JKk/WRLzcj5Pyf7/UG4zO7XrSb6baZ+r+Kqq0oHoE9zCG8On44vO751IWxmLeCXxliDbORhS12Ke+kMDzUz1gz+4wi38uJCcAKqzTSeNuchGmvTdoRGCNHGcqjFSGNfDVDdwOi+1+59fCTIgN9Ldw== lennartalff-yubikey
-      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID1jzFjfirr762nLh2CAwCoyrjfIezMH4it5nd4by+Bn nathalie_bauschmann@hotmail.de
+      - <your-ssh-public-key>
 
 # allow password ssh login
 ssh_pwauth: true

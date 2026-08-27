@@ -112,3 +112,5 @@ Old pages are relative to the old site root (https://hippocampusrobotics.github.
 - `guides/misc-notes`: asciinema recording linked to old site
 - `hippocampus-bringup/afro-esc`: download '/res/misc/avrdude' linked to old site (binary/vendor file not committed)
 - `lab-gantry/general-information`: download '/res/manuals/mcdc2805.pdf' linked to old site (binary/vendor file not committed)
+- `raspberry-pi/ubuntu-24-04-server`: scrubbed literal plain_text_passwd value from a code block (line commented out)
+- `raspberry-pi/ubuntu-24-04-server`: replaced a personal SSH public key with a placeholder

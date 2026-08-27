@@ -60,12 +60,18 @@
 
   function enhance(root) {
     // heading ids + anchors (h2+; h1 is the page itself)
+    const assigned = new Set();
     root.querySelectorAll('h2, h3, h4').forEach((h) => {
-      const id = slugify(h.textContent);
-      if (!h.id) h.id = id;
+      if (!h.id) {
+        const base = slugify(h.textContent);
+        let id = base;
+        for (let n = 2; assigned.has(id); n += 1) id = `${base}-${n}`;
+        h.id = id;
+      }
+      assigned.add(h.id);
       const a = document.createElement('a');
       a.className = 'heading-anchor';
-      a.href = location.hash.split('@')[0] + '@' + id;
+      a.href = location.hash.split('@')[0] + '@' + h.id;
       a.textContent = '#';
       a.setAttribute('aria-label', 'Link to this section');
       h.appendChild(a);

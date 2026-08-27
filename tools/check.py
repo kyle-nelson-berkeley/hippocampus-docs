@@ -184,6 +184,22 @@ def main():
         if a.is_file() and a.resolve() not in used_assets | always_used:
             err(f"orphan asset (nothing references it): {a.relative_to(ROOT)}")
 
+    # ---- 6b. content hygiene: no credentials or personal data, ever ----
+    email_ok = re.compile(r"@(github\.com|[\w.-]*\.local|example\.[a-z]+)$")
+    for md in md_files:
+        rel = md.relative_to(ROOT)
+        for i, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1):
+            m = re.search(r"(?<![A-Za-z0-9_])[\"']?(plain_text_passwd|password|passwd|pwd)[\"']?\s*[:=]\s*[\"']?([^\s\"']+)",
+                          line, re.IGNORECASE)
+            if m and not m.group(2).startswith(("<", "$")) \
+                    and m.group(2).lower() not in ("false", "true", "none", "null"):
+                err(f"{rel}:{i}: literal credential value ('{m.group(1)}') — use a <placeholder>")
+            if re.search(r"ssh-(rsa|ed25519|ecdsa|dss)\s+[A-Za-z0-9+/=]{30,}", line):
+                err(f"{rel}:{i}: real SSH public key material — use <your-ssh-public-key>")
+            for em in re.findall(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", line):
+                if not email_ok.search(em) and em != "git@github.com":
+                    err(f"{rel}:{i}: personal email address '{em}' — do not republish personal data")
+
     # ---- 7. shell ----
     index = (ROOT / "index.html").read_text(encoding="utf-8")
     for ref in html_ref_re.findall(index):

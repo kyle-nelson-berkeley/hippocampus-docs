@@ -357,7 +357,7 @@ class Converter:
                     code.pop()
                 if code:
                     out.append('```text')
-                    out.extend(code)
+                    out.extend(self.scrub_code(code))
                     out.append('```')
                     out.append('')
         return '\n'.join(out) if top else out
@@ -381,12 +381,40 @@ class Converter:
         return opts, content
 
     # ---------- directives ----------
+    def scrub_code(self, lines):
+        """Never republish credentials or personal key material, even when the
+        old site did. Values become placeholders; each scrub is warned."""
+        out, prev_placeholder = [], False
+        for l in lines:
+            m = re.match(r'^(\s*)(["\']?)(plain_text_passwd|password|passwd|pwd)(["\']?\s*[:=]\s*)(.+)$',
+                         l, re.IGNORECASE)
+            if m and not re.match(r'^[<$]|^["\']?(true|false|none|null)["\']?\s*$|^["\']{2}\s*$',
+                                  m.group(5).strip(), re.IGNORECASE):
+                # commented out on purpose: a copy-pasted example must FAIL until the
+                # reader sets a real value — a live placeholder would itself be a
+                # publicly documented working password.
+                out.append(f"{m.group(1)}# {m.group(2)}{m.group(3)}{m.group(4)}\"<set-your-own-password>\"")
+                warn(self.page, f"scrubbed literal {m.group(3)} value from a code block (line commented out)")
+                prev_placeholder = False
+                continue
+            m = re.match(r'^(\s*(?:-\s+)?)ssh-(?:rsa|ed25519|ecdsa|dss)\s+[A-Za-z0-9+/=]{30,}.*$', l)
+            if m:
+                if not prev_placeholder:
+                    out.append(f"{m.group(1)}<your-ssh-public-key>")
+                    warn(self.page, "replaced a personal SSH public key with a placeholder")
+                prev_placeholder = True
+                continue
+            prev_placeholder = False
+            out.append(l)
+        return out
+
     def directive(self, name, arg, opts, content):
         out = []
         if name in ('code-block', 'code', 'sourcecode', 'highlight'):
             lang = CODE_ALIASES.get(arg.lower(), arg.lower() or 'text')
             while content and not content[-1].strip():
                 content = content[:-1]
+            content = self.scrub_code(content)
             out += [f"```{lang}"] + content + ["```", '']
         elif name in ADMONITIONS:
             out.append(f'<div class="adm adm-{name}"><p class="adm-title">{ADMONITIONS[name]}</p>')
@@ -413,6 +441,7 @@ class Converter:
             out.append('')
             while content and not content[-1].strip():
                 content = content[:-1]
+            content = self.scrub_code(content)
             out += [f"```{lang}"] + content + ["```"]
             out += ['', '</div>', '']
         elif name in ('figure', 'image'):
