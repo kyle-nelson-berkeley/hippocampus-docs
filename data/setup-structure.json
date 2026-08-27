@@ -1,0 +1,140 @@
+{
+  "_comment": "Authored mapping: every page of the old Sphinx docs site -> its home in the new Setup section, or an explicit drop with a reason. tools/rst_convert.py consumes this; tools/check.py enforces completeness against the old repo's page list.",
+  "source": {
+    "repo": "HippoCampusRobotics/docs",
+    "commit_date_cloned": "2026-08-28",
+    "old_base_url": "https://hippocampusrobotics.github.io/docs"
+  },
+  "groups": [
+    {"id": "start", "title": "Start here", "pages": [
+      {"slug": "index", "old": "index", "manual": true,
+       "note": "Rebuilt as the Setup landing page (the old page was only a table of contents)."}
+    ]},
+    {"id": "getting-started", "title": "Getting started", "pages": [
+      {"slug": "ros-installation", "old": "contents/getting_started/ros_installation"},
+      {"slug": "pre-built-packages", "old": "contents/getting_started/pre-built_packages"},
+      {"slug": "workspace-setup", "old": "contents/getting_started/workspace_setup"},
+      {"slug": "starting-gazebo-simulation", "old": "contents/getting_started/starting_gazebo_simulation"},
+      {"slug": "px4-setup", "old": "contents/getting_started/px4_setup"},
+      {"slug": "installing-qgc", "old": "contents/getting_started/installing_qgc"},
+      {"slug": "deploying-hippocampus", "old": "contents/getting_started/deploying_hippocampus"},
+      {"slug": "apriltag-localization", "old": "contents/getting_started/apriltag_localization"},
+      {"slug": "workstation-quality-of-life", "old": "contents/getting_started/zsh_and_other_quality_of_live_features"}
+    ]},
+    {"id": "concepts", "title": "Concepts", "pages": [
+      {"slug": "ros2-workspace", "old": "contents/concepts/ros2_workspace"},
+      {"slug": "colcon", "old": "contents/concepts/colcon"},
+      {"slug": "pre-built-packages", "old": "contents/concepts/pre-built_packages"},
+      {"slug": "ros2-repositories", "old": "contents/concepts/ros2_repositories"},
+      {"slug": "deployment", "old": "contents/concepts/deployment"}
+    ]},
+    {"id": "raspberry-pi", "title": "Raspberry Pi setup", "pages": [
+      {"slug": "quality-of-life", "old": "contents/raspberry_pi_setup/quality_of_life_features"},
+      {"slug": "ubuntu-24-04-server", "old": "contents/raspberry_pi_setup/ubuntu_24.04_server_64bit"},
+      {"slug": "pinout", "old": "contents/raspberry_pi_setup/pinout"},
+      {"slug": "uart-configuration", "old": "contents/raspberry_pi_setup/uart_configuration"},
+      {"slug": "usb-configuration", "old": "contents/raspberry_pi_setup/usb_configuration"},
+      {"slug": "ethernet", "old": "contents/raspberry_pi_setup/ethernet"}
+    ]},
+    {"id": "hippocampus-bringup", "title": "HippoCampus bring-up", "pages": [
+      {"slug": "motor-configuration", "old": "contents/hippocampus/motor_configuration"},
+      {"slug": "afro-esc", "old": "contents/hippocampus/afro_esc"},
+      {"slug": "fcu-firmware", "old": "contents/hippocampus/fcu_firmware"}
+    ]},
+    {"id": "bluerov", "title": "BlueROV", "pages": [
+      {"slug": "build-and-flash", "old": "contents/bluerov/build_and_flash"},
+      {"slug": "deploy", "old": "contents/bluerov/deploy"},
+      {"slug": "servo-and-light", "old": "contents/bluerov/servo_and_light"},
+      {"slug": "dvl", "old": "contents/bluerov/dvl"},
+      {"slug": "alpha-arm", "old": "contents/bluerov/alpha_arm"},
+      {"slug": "full-uvms-setup", "old": "contents/bluerov/full_uvms_setup"}
+    ]},
+    {"id": "hardware", "title": "Hardware reference", "pages": [
+      {"slug": "hippocampus", "old": "contents/hardware/hippocampus"},
+      {"slug": "bluerov", "old": "contents/hardware/bluerov"},
+      {"slug": "gantry", "old": "contents/hardware/gantry"},
+      {"slug": "qualisys", "old": "contents/hardware/qualisys"},
+      {"slug": "marker", "old": "contents/hardware/marker"},
+      {"slug": "cameras", "old": "contents/hardware/cameras"},
+      {"slug": "buttons", "old": "contents/hardware/buttons"},
+      {"slug": "rf-modules", "old": "contents/hardware/RF_modules"},
+      {"slug": "acoustic-modems", "old": "contents/hardware/acoustic_modems",
+       "note": "Orphan on the old site (commented out of its table of contents) but still served; math is kept as literal LaTeX in code spans."}
+    ]},
+    {"id": "lab-qualisys", "title": "Qualisys motion capture", "pages": [
+      {"slug": "calibration", "old": "contents/qualisys/calibration"},
+      {"slug": "camera-settings", "old": "contents/qualisys/camera_settings"},
+      {"slug": "defining-bodies", "old": "contents/qualisys/defining_bodies"}
+    ]},
+    {"id": "lab-gantry", "title": "Gantry", "pages": [
+      {"slug": "general-information", "old": "contents/gantry/general_information"},
+      {"slug": "installation", "old": "contents/gantry/installation"},
+      {"slug": "raspi-setup", "old": "contents/gantry/raspi_setup"},
+      {"slug": "motor-node", "old": "contents/gantry/motor_node"},
+      {"slug": "usage", "old": "contents/gantry/usage"}
+    ]},
+    {"id": "lab-cameras", "title": "Cameras", "pages": [
+      {"slug": "usb-cameras", "old": "contents/cameras/usb_cameras"},
+      {"slug": "ip-cameras", "old": "contents/cameras/ip_cameras"},
+      {"slug": "event-cameras", "old": "contents/cameras/event_cameras"},
+      {"slug": "event-camera-collaboration", "old": "contents/cameras/event_camera_collaboration"}
+    ]},
+    {"id": "lab-marker", "title": "Reflective markers", "pages": [
+      {"slug": "design", "old": "contents/marker/design"},
+      {"slug": "fabrication", "old": "contents/marker/fabrication"}
+    ]},
+    {"id": "time-sync", "title": "Time synchronization", "pages": [
+      {"slug": "overview", "old": "contents/misc/time_synchronization"},
+      {"slug": "server", "old": "contents/time_synchronization/server"},
+      {"slug": "client", "old": "contents/time_synchronization/client"}
+    ]},
+    {"id": "guides", "title": "Guides & misc", "pages": [
+      {"slug": "camera-calibration", "old": "contents/misc/camera_calibration"},
+      {"slug": "mixers", "old": "contents/misc/mixers"},
+      {"slug": "path-follower", "old": "contents/misc/path_follower"},
+      {"slug": "path-follower-concept", "old": "contents/path_follower/concept"},
+      {"slug": "ros2-cheatsheet", "old": "contents/misc/ros2"},
+      {"slug": "ros2-misc", "old": "contents/ros2/misc"},
+      {"slug": "apriltag", "old": "contents/ros2/apriltag"},
+      {"slug": "install-source-dependencies", "old": "contents/misc/install_source_dependencies"},
+      {"slug": "informative-path-planning", "old": "contents/misc/ipp"},
+      {"slug": "dvb-t", "old": "contents/rf/dvb_t"},
+      {"slug": "buttons", "old": "contents/buttons/buttons"},
+      {"slug": "misc-notes", "old": "contents/misc/misc"}
+    ]},
+    {"id": "contributing", "title": "Contributing", "pages": [
+      {"slug": "documentation", "old": "contents/contributing/contributing_to_documentation"},
+      {"slug": "hippocampus", "old": "contents/contributing/contributing_to_hippocampus"},
+      {"slug": "debian-packages", "old": "contents/contributing/releasing_debian_packages"}
+    ]}
+  ],
+  "dropped_reason_default": "Deprecated ROS 1 content the old site itself marks as deprecated; superseded by the ROS 2 pages migrated above. Preserved on the old site and in the docs repo's git history.",
+  "dropped": [
+    {"old": "contents/misc/ros_deprecated"},
+    {"old": "contents/ros_deprecated/getting_started"},
+    {"old": "contents/ros_deprecated/getting_started/deploying_hippocampus"},
+    {"old": "contents/ros_deprecated/getting_started/installing_px4"},
+    {"old": "contents/ros_deprecated/getting_started/installing_qgc"},
+    {"old": "contents/ros_deprecated/getting_started/installing_ros"},
+    {"old": "contents/ros_deprecated/getting_started/starting_gazebo_simulation"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/ethernet_configuration"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/install_camera_library"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/install_mavros"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/install_our_ros_packages"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/install_ros_packages"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/pinout"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/pre_boot_configuration"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/quality_of_life_features"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/ros_installation"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/ros_network_setup"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/system_configuration"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/uart_configuration"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/update_catkin_ws"},
+    {"old": "contents/ros_deprecated/raspberry_pi_4b_setup/usb_configuration"},
+    {"old": "contents/ros_deprecated/workflow_and_style_guide"},
+    {"old": "contents/ros_deprecated/workflow_and_style_guide/structuring_catkin_packages"},
+    {"old": "contents/ros_deprecated/workflow_and_style_guide/using_formatters"},
+    {"old": "contents/ros_deprecated/workflow_and_style_guide/writing_launch_files"}
+  ]
+}

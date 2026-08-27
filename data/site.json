@@ -1,0 +1,15 @@
+{
+  "kicker": "TUHH · Institute of Mechanics and Ocean Engineering",
+  "title": "HippoCampus Robotics",
+  "lead": "The lab's home for getting robots running: setup guides, every project in one place, searchable code and CAD, and the tools our AI agents use.",
+  "home_cards": [
+    {"href": "#/setup", "title": "Setup",
+     "text": "Install ROS 2, set up a workstation or Raspberry Pi, bring up a vehicle, run the simulation. Replaces the old docs site page for page."},
+    {"href": "#/projects", "title": "Projects",
+     "text": "What the team builds and has built — every repository in the org, grouped into projects with context, status, and links."},
+    {"href": "#/search?q=controller", "title": "Search",
+     "text": "One search box over setup pages, projects, code symbols, and CAD parts, with deep links to the exact file or heading."},
+    {"href": "#/tools", "title": "Agent tools",
+     "text": "The lab's MCP servers for AI agents — GPU compute and CAD access — documented from scratch for new users."}
+  ]
+}

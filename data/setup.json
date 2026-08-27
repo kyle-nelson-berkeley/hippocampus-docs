@@ -1,0 +1,587 @@
+{
+ "sections": [
+  {
+   "id": "start",
+   "title": "Start here",
+   "pages": [
+    {
+     "id": "start/index",
+     "title": "Setup",
+     "file": "content/setup/start/index.md",
+     "old": "index",
+     "old_url": "https://hippocampusrobotics.github.io/docs/index.html",
+     "note": "Rebuilt as the Setup landing page (the old page was only a table of contents)."
+    }
+   ]
+  },
+  {
+   "id": "getting-started",
+   "title": "Getting started",
+   "pages": [
+    {
+     "id": "getting-started/ros-installation",
+     "title": "ROS Installation",
+     "file": "content/setup/getting-started/ros-installation.md",
+     "old": "contents/getting_started/ros_installation",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/getting_started/ros_installation.html"
+    },
+    {
+     "id": "getting-started/pre-built-packages",
+     "title": "Pre-built Packages",
+     "file": "content/setup/getting-started/pre-built-packages.md",
+     "old": "contents/getting_started/pre-built_packages",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/getting_started/pre-built_packages.html"
+    },
+    {
+     "id": "getting-started/workspace-setup",
+     "title": "Workspace Setup",
+     "file": "content/setup/getting-started/workspace-setup.md",
+     "old": "contents/getting_started/workspace_setup",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/getting_started/workspace_setup.html"
+    },
+    {
+     "id": "getting-started/starting-gazebo-simulation",
+     "title": "Starting Simulation",
+     "file": "content/setup/getting-started/starting-gazebo-simulation.md",
+     "old": "contents/getting_started/starting_gazebo_simulation",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/getting_started/starting_gazebo_simulation.html"
+    },
+    {
+     "id": "getting-started/px4-setup",
+     "title": "PX4 Setup",
+     "file": "content/setup/getting-started/px4-setup.md",
+     "old": "contents/getting_started/px4_setup",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/getting_started/px4_setup.html"
+    },
+    {
+     "id": "getting-started/installing-qgc",
+     "title": "Installing QGroundControl",
+     "file": "content/setup/getting-started/installing-qgc.md",
+     "old": "contents/getting_started/installing_qgc",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/getting_started/installing_qgc.html"
+    },
+    {
+     "id": "getting-started/deploying-hippocampus",
+     "title": "Deploying HippoCampus",
+     "file": "content/setup/getting-started/deploying-hippocampus.md",
+     "old": "contents/getting_started/deploying_hippocampus",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/getting_started/deploying_hippocampus.html"
+    },
+    {
+     "id": "getting-started/apriltag-localization",
+     "title": "Apriltag Localization",
+     "file": "content/setup/getting-started/apriltag-localization.md",
+     "old": "contents/getting_started/apriltag_localization",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/getting_started/apriltag_localization.html"
+    },
+    {
+     "id": "getting-started/workstation-quality-of-life",
+     "title": "Quality-of-Life Features",
+     "file": "content/setup/getting-started/workstation-quality-of-life.md",
+     "old": "contents/getting_started/zsh_and_other_quality_of_live_features",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/getting_started/zsh_and_other_quality_of_live_features.html"
+    }
+   ]
+  },
+  {
+   "id": "concepts",
+   "title": "Concepts",
+   "pages": [
+    {
+     "id": "concepts/ros2-workspace",
+     "title": "ROS2 Workspace",
+     "file": "content/setup/concepts/ros2-workspace.md",
+     "old": "contents/concepts/ros2_workspace",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/concepts/ros2_workspace.html"
+    },
+    {
+     "id": "concepts/colcon",
+     "title": "Colcon",
+     "file": "content/setup/concepts/colcon.md",
+     "old": "contents/concepts/colcon",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/concepts/colcon.html"
+    },
+    {
+     "id": "concepts/pre-built-packages",
+     "title": "Pre-built Packages",
+     "file": "content/setup/concepts/pre-built-packages.md",
+     "old": "contents/concepts/pre-built_packages",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/concepts/pre-built_packages.html"
+    },
+    {
+     "id": "concepts/ros2-repositories",
+     "title": "ROS2 Repositories",
+     "file": "content/setup/concepts/ros2-repositories.md",
+     "old": "contents/concepts/ros2_repositories",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/concepts/ros2_repositories.html"
+    },
+    {
+     "id": "concepts/deployment",
+     "title": "Automated Deployment",
+     "file": "content/setup/concepts/deployment.md",
+     "old": "contents/concepts/deployment",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/concepts/deployment.html"
+    }
+   ]
+  },
+  {
+   "id": "raspberry-pi",
+   "title": "Raspberry Pi setup",
+   "pages": [
+    {
+     "id": "raspberry-pi/quality-of-life",
+     "title": "Quality-of-Life Features",
+     "file": "content/setup/raspberry-pi/quality-of-life.md",
+     "old": "contents/raspberry_pi_setup/quality_of_life_features",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/raspberry_pi_setup/quality_of_life_features.html"
+    },
+    {
+     "id": "raspberry-pi/ubuntu-24-04-server",
+     "title": "Ubuntu 24.04 Server 64bit",
+     "file": "content/setup/raspberry-pi/ubuntu-24-04-server.md",
+     "old": "contents/raspberry_pi_setup/ubuntu_24.04_server_64bit",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/raspberry_pi_setup/ubuntu_24.04_server_64bit.html"
+    },
+    {
+     "id": "raspberry-pi/pinout",
+     "title": "Pinout",
+     "file": "content/setup/raspberry-pi/pinout.md",
+     "old": "contents/raspberry_pi_setup/pinout",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/raspberry_pi_setup/pinout.html"
+    },
+    {
+     "id": "raspberry-pi/uart-configuration",
+     "title": "UART Configuration",
+     "file": "content/setup/raspberry-pi/uart-configuration.md",
+     "old": "contents/raspberry_pi_setup/uart_configuration",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/raspberry_pi_setup/uart_configuration.html"
+    },
+    {
+     "id": "raspberry-pi/usb-configuration",
+     "title": "USB Configuration",
+     "file": "content/setup/raspberry-pi/usb-configuration.md",
+     "old": "contents/raspberry_pi_setup/usb_configuration",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/raspberry_pi_setup/usb_configuration.html"
+    },
+    {
+     "id": "raspberry-pi/ethernet",
+     "title": "Ethernet",
+     "file": "content/setup/raspberry-pi/ethernet.md",
+     "old": "contents/raspberry_pi_setup/ethernet",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/raspberry_pi_setup/ethernet.html"
+    }
+   ]
+  },
+  {
+   "id": "hippocampus-bringup",
+   "title": "HippoCampus bring-up",
+   "pages": [
+    {
+     "id": "hippocampus-bringup/motor-configuration",
+     "title": "Motor Configuration",
+     "file": "content/setup/hippocampus-bringup/motor-configuration.md",
+     "old": "contents/hippocampus/motor_configuration",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/hippocampus/motor_configuration.html"
+    },
+    {
+     "id": "hippocampus-bringup/afro-esc",
+     "title": "Afro ESC",
+     "file": "content/setup/hippocampus-bringup/afro-esc.md",
+     "old": "contents/hippocampus/afro_esc",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/hippocampus/afro_esc.html"
+    },
+    {
+     "id": "hippocampus-bringup/fcu-firmware",
+     "title": "FCU Firmware",
+     "file": "content/setup/hippocampus-bringup/fcu-firmware.md",
+     "old": "contents/hippocampus/fcu_firmware",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/hippocampus/fcu_firmware.html"
+    }
+   ]
+  },
+  {
+   "id": "bluerov",
+   "title": "BlueROV",
+   "pages": [
+    {
+     "id": "bluerov/build-and-flash",
+     "title": "Build And Flash",
+     "file": "content/setup/bluerov/build-and-flash.md",
+     "old": "contents/bluerov/build_and_flash",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/bluerov/build_and_flash.html"
+    },
+    {
+     "id": "bluerov/deploy",
+     "title": "Deployment",
+     "file": "content/setup/bluerov/deploy.md",
+     "old": "contents/bluerov/deploy",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/bluerov/deploy.html"
+    },
+    {
+     "id": "bluerov/servo-and-light",
+     "title": "Servo And Light",
+     "file": "content/setup/bluerov/servo-and-light.md",
+     "old": "contents/bluerov/servo_and_light",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/bluerov/servo_and_light.html"
+    },
+    {
+     "id": "bluerov/dvl",
+     "title": "DVL",
+     "file": "content/setup/bluerov/dvl.md",
+     "old": "contents/bluerov/dvl",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/bluerov/dvl.html"
+    },
+    {
+     "id": "bluerov/alpha-arm",
+     "title": "Alpha Arm",
+     "file": "content/setup/bluerov/alpha-arm.md",
+     "old": "contents/bluerov/alpha_arm",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/bluerov/alpha_arm.html"
+    },
+    {
+     "id": "bluerov/full-uvms-setup",
+     "title": "Full UVMS Setup",
+     "file": "content/setup/bluerov/full-uvms-setup.md",
+     "old": "contents/bluerov/full_uvms_setup",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/bluerov/full_uvms_setup.html"
+    }
+   ]
+  },
+  {
+   "id": "hardware",
+   "title": "Hardware reference",
+   "pages": [
+    {
+     "id": "hardware/hippocampus",
+     "title": "HippoCampus",
+     "file": "content/setup/hardware/hippocampus.md",
+     "old": "contents/hardware/hippocampus",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/hardware/hippocampus.html"
+    },
+    {
+     "id": "hardware/bluerov",
+     "title": "BlueROV",
+     "file": "content/setup/hardware/bluerov.md",
+     "old": "contents/hardware/bluerov",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/hardware/bluerov.html"
+    },
+    {
+     "id": "hardware/gantry",
+     "title": "Gantry",
+     "file": "content/setup/hardware/gantry.md",
+     "old": "contents/hardware/gantry",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/hardware/gantry.html"
+    },
+    {
+     "id": "hardware/qualisys",
+     "title": "Qualisys MoCap System",
+     "file": "content/setup/hardware/qualisys.md",
+     "old": "contents/hardware/qualisys",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/hardware/qualisys.html"
+    },
+    {
+     "id": "hardware/marker",
+     "title": "Custom MoCap Markers",
+     "file": "content/setup/hardware/marker.md",
+     "old": "contents/hardware/marker",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/hardware/marker.html"
+    },
+    {
+     "id": "hardware/cameras",
+     "title": "Cameras",
+     "file": "content/setup/hardware/cameras.md",
+     "old": "contents/hardware/cameras",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/hardware/cameras.html"
+    },
+    {
+     "id": "hardware/buttons",
+     "title": "Buttons",
+     "file": "content/setup/hardware/buttons.md",
+     "old": "contents/hardware/buttons",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/hardware/buttons.html"
+    },
+    {
+     "id": "hardware/rf-modules",
+     "title": "RF Modules",
+     "file": "content/setup/hardware/rf-modules.md",
+     "old": "contents/hardware/RF_modules",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/hardware/RF_modules.html"
+    },
+    {
+     "id": "hardware/acoustic-modems",
+     "title": "Acoustic Modems",
+     "file": "content/setup/hardware/acoustic-modems.md",
+     "old": "contents/hardware/acoustic_modems",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/hardware/acoustic_modems.html",
+     "note": "Orphan on the old site (commented out of its table of contents) but still served; math is kept as literal LaTeX in code spans."
+    }
+   ]
+  },
+  {
+   "id": "lab-qualisys",
+   "title": "Qualisys motion capture",
+   "pages": [
+    {
+     "id": "lab-qualisys/calibration",
+     "title": "Calibration",
+     "file": "content/setup/lab-qualisys/calibration.md",
+     "old": "contents/qualisys/calibration",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/qualisys/calibration.html"
+    },
+    {
+     "id": "lab-qualisys/camera-settings",
+     "title": "Camera Settings",
+     "file": "content/setup/lab-qualisys/camera-settings.md",
+     "old": "contents/qualisys/camera_settings",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/qualisys/camera_settings.html"
+    },
+    {
+     "id": "lab-qualisys/defining-bodies",
+     "title": "Tracking Bodies",
+     "file": "content/setup/lab-qualisys/defining-bodies.md",
+     "old": "contents/qualisys/defining_bodies",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/qualisys/defining_bodies.html"
+    }
+   ]
+  },
+  {
+   "id": "lab-gantry",
+   "title": "Gantry",
+   "pages": [
+    {
+     "id": "lab-gantry/general-information",
+     "title": "General Information",
+     "file": "content/setup/lab-gantry/general-information.md",
+     "old": "contents/gantry/general_information",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/gantry/general_information.html"
+    },
+    {
+     "id": "lab-gantry/installation",
+     "title": "Installation",
+     "file": "content/setup/lab-gantry/installation.md",
+     "old": "contents/gantry/installation",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/gantry/installation.html"
+    },
+    {
+     "id": "lab-gantry/raspi-setup",
+     "title": "Raspberry Pi Setup",
+     "file": "content/setup/lab-gantry/raspi-setup.md",
+     "old": "contents/gantry/raspi_setup",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/gantry/raspi_setup.html"
+    },
+    {
+     "id": "lab-gantry/motor-node",
+     "title": "Motor Node",
+     "file": "content/setup/lab-gantry/motor-node.md",
+     "old": "contents/gantry/motor_node",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/gantry/motor_node.html"
+    },
+    {
+     "id": "lab-gantry/usage",
+     "title": "Usage",
+     "file": "content/setup/lab-gantry/usage.md",
+     "old": "contents/gantry/usage",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/gantry/usage.html"
+    }
+   ]
+  },
+  {
+   "id": "lab-cameras",
+   "title": "Cameras",
+   "pages": [
+    {
+     "id": "lab-cameras/usb-cameras",
+     "title": "USB Cameras",
+     "file": "content/setup/lab-cameras/usb-cameras.md",
+     "old": "contents/cameras/usb_cameras",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/cameras/usb_cameras.html"
+    },
+    {
+     "id": "lab-cameras/ip-cameras",
+     "title": "IP Cameras (Blick)",
+     "file": "content/setup/lab-cameras/ip-cameras.md",
+     "old": "contents/cameras/ip_cameras",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/cameras/ip_cameras.html"
+    },
+    {
+     "id": "lab-cameras/event-cameras",
+     "title": "Event Cameras",
+     "file": "content/setup/lab-cameras/event-cameras.md",
+     "old": "contents/cameras/event_cameras",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/cameras/event_cameras.html"
+    },
+    {
+     "id": "lab-cameras/event-camera-collaboration",
+     "title": "Event Camera Collaboration",
+     "file": "content/setup/lab-cameras/event-camera-collaboration.md",
+     "old": "contents/cameras/event_camera_collaboration",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/cameras/event_camera_collaboration.html"
+    }
+   ]
+  },
+  {
+   "id": "lab-marker",
+   "title": "Reflective markers",
+   "pages": [
+    {
+     "id": "lab-marker/design",
+     "title": "Design",
+     "file": "content/setup/lab-marker/design.md",
+     "old": "contents/marker/design",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/marker/design.html"
+    },
+    {
+     "id": "lab-marker/fabrication",
+     "title": "Fabrication",
+     "file": "content/setup/lab-marker/fabrication.md",
+     "old": "contents/marker/fabrication",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/marker/fabrication.html"
+    }
+   ]
+  },
+  {
+   "id": "time-sync",
+   "title": "Time synchronization",
+   "pages": [
+    {
+     "id": "time-sync/overview",
+     "title": "Time Synchronization",
+     "file": "content/setup/time-sync/overview.md",
+     "old": "contents/misc/time_synchronization",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/misc/time_synchronization.html"
+    },
+    {
+     "id": "time-sync/server",
+     "title": "Server",
+     "file": "content/setup/time-sync/server.md",
+     "old": "contents/time_synchronization/server",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/time_synchronization/server.html"
+    },
+    {
+     "id": "time-sync/client",
+     "title": "Client",
+     "file": "content/setup/time-sync/client.md",
+     "old": "contents/time_synchronization/client",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/time_synchronization/client.html"
+    }
+   ]
+  },
+  {
+   "id": "guides",
+   "title": "Guides & misc",
+   "pages": [
+    {
+     "id": "guides/camera-calibration",
+     "title": "Camera Calibration",
+     "file": "content/setup/guides/camera-calibration.md",
+     "old": "contents/misc/camera_calibration",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/misc/camera_calibration.html"
+    },
+    {
+     "id": "guides/mixers",
+     "title": "Mixers",
+     "file": "content/setup/guides/mixers.md",
+     "old": "contents/misc/mixers",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/misc/mixers.html"
+    },
+    {
+     "id": "guides/path-follower",
+     "title": "Path Follower",
+     "file": "content/setup/guides/path-follower.md",
+     "old": "contents/misc/path_follower",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/misc/path_follower.html"
+    },
+    {
+     "id": "guides/path-follower-concept",
+     "title": "Concept",
+     "file": "content/setup/guides/path-follower-concept.md",
+     "old": "contents/path_follower/concept",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/path_follower/concept.html"
+    },
+    {
+     "id": "guides/ros2-cheatsheet",
+     "title": "ROS2",
+     "file": "content/setup/guides/ros2-cheatsheet.md",
+     "old": "contents/misc/ros2",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/misc/ros2.html"
+    },
+    {
+     "id": "guides/ros2-misc",
+     "title": "Misc",
+     "file": "content/setup/guides/ros2-misc.md",
+     "old": "contents/ros2/misc",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/ros2/misc.html"
+    },
+    {
+     "id": "guides/apriltag",
+     "title": "AprilTag",
+     "file": "content/setup/guides/apriltag.md",
+     "old": "contents/ros2/apriltag",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/ros2/apriltag.html"
+    },
+    {
+     "id": "guides/install-source-dependencies",
+     "title": "Install Source Dependencies",
+     "file": "content/setup/guides/install-source-dependencies.md",
+     "old": "contents/misc/install_source_dependencies",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/misc/install_source_dependencies.html"
+    },
+    {
+     "id": "guides/informative-path-planning",
+     "title": "Informative Path Planning",
+     "file": "content/setup/guides/informative-path-planning.md",
+     "old": "contents/misc/ipp",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/misc/ipp.html"
+    },
+    {
+     "id": "guides/dvb-t",
+     "title": "DVB-T Stick",
+     "file": "content/setup/guides/dvb-t.md",
+     "old": "contents/rf/dvb_t",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/rf/dvb_t.html"
+    },
+    {
+     "id": "guides/buttons",
+     "title": "Buttons",
+     "file": "content/setup/guides/buttons.md",
+     "old": "contents/buttons/buttons",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/buttons/buttons.html"
+    },
+    {
+     "id": "guides/misc-notes",
+     "title": "Misc",
+     "file": "content/setup/guides/misc-notes.md",
+     "old": "contents/misc/misc",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/misc/misc.html"
+    }
+   ]
+  },
+  {
+   "id": "contributing",
+   "title": "Contributing",
+   "pages": [
+    {
+     "id": "contributing/documentation",
+     "title": "Contributing to Documentation",
+     "file": "content/setup/contributing/documentation.md",
+     "old": "contents/contributing/contributing_to_documentation",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/contributing/contributing_to_documentation.html"
+    },
+    {
+     "id": "contributing/hippocampus",
+     "title": "Contributing to HippoCampus",
+     "file": "content/setup/contributing/hippocampus.md",
+     "old": "contents/contributing/contributing_to_hippocampus",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/contributing/contributing_to_hippocampus.html"
+    },
+    {
+     "id": "contributing/debian-packages",
+     "title": "Releasing Debian Packages",
+     "file": "content/setup/contributing/debian-packages.md",
+     "old": "contents/contributing/releasing_debian_packages",
+     "old_url": "https://hippocampusrobotics.github.io/docs/contents/contributing/releasing_debian_packages.html"
+    }
+   ]
+  }
+ ]
+}
