@@ -80,3 +80,20 @@ result files under `~/.claude-os/prompts/`.
   `#/projects/uvms` (rank 1). Reason recorded in `data/search-probes.json`.
 - **codex-review**: PASS after one fix — route-epoch guards so slow async loads
   (cold search, uncached pages) can never paint over a newer route.
+
+## Phase 3 — agent tools · 2026-08-28
+
+- Full from-scratch guides for both tools (done-bar 5): prerequisites, account/API-key
+  creation, credential storage (Keychain / chmod-600 env), registration in `.mcp.json`,
+  and a verify-before-spending step. runpod-mcp framed as "external GPU compute for the
+  lab" with its generalization points called out (Keychain account name, pod profile).
+  Cloudinary documented as a gap (no MCP exists; nearest is a private skill).
+- Security evidence made durable: `docs/security-audit-2026-08-28.md` (tool, modes,
+  4×0 findings, the LOW pod-id fixture finding, the old-site password finding for the
+  team).
+- The fixture fix is PREPARED, NOT PUSHED (Kyle gate):
+  `docs/pending-approvals/runpod-mcp-fixture-scrub.patch`, proven no-op on the repo's
+  test results (identical counts before/after; pre-existing failures are the documented
+  standalone-clone limitation).
+- No public repo touched; nothing published. codex-review skipped per the brief's rule
+  (prose/docs-only phase; the patch was verified by running the target repo's tests).
