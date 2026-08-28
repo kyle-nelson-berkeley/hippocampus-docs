@@ -47,9 +47,10 @@ org repo in exactly one project). Never weaken a check to get to green — fix t
 
 ## Status
 
-Phases 0–4 built and verified locally; **not yet published** — creating the public
-staging repo + GitHub Pages is gated on Kyle's approval (`docs/site-plan.md` §8).
-Search runs on the committed precomputed index (`search/`, 75 shards, 0.41 MB;
-10/10 acceptance probes at rank 1 — `data/search-probes.json`). Agent editing goes
-through the private onboarding repo's `hippo-site` MCP server
-(github.com/kyle-nelson-berkeley/hippocampus-team-onboarding, private).
+**Live (staging): <https://kyle-nelson-berkeley.github.io/hippocampus-docs/>** —
+published 2026-08-28 with Kyle's approval; `noindex` while staging. Search runs on the
+committed precomputed index (`search/`, 75 shards, 0.41 MB; 10/10 acceptance probes at
+rank 1 on the live URL — `data/search-probes.json`). Agent editing goes through the
+private onboarding repo's `hippo-site` MCP server
+(github.com/kyle-nelson-berkeley/hippocampus-team-onboarding, private). The org
+cut-over (pointing the team at this URL) remains a team decision.

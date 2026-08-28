@@ -119,3 +119,20 @@ result files under `~/.claude-os/prompts/`.
 - Note on the gate ledger: the brief gates PUBLIC repos; this repo is private and
   done-bar 6 requires it to exist, so it was created without pausing. Fully reversible —
   Kyle can delete/transfer with one click if he prefers a different home.
+
+## Publication — Kyle-approved gates 1 & 2 executed · 2026-08-28
+
+- **The site is LIVE**: <https://kyle-nelson-berkeley.github.io/hippocampus-docs/>.
+  Public repo `kyle-nelson-berkeley/hippocampus-docs` created and pushed (with
+  `.nojekyll` so Pages serves files verbatim); Pages enabled (branch main, root);
+  build status "built"; root and registries/content/assets all 200.
+- **Probes re-run against the LIVE URL: 10/10 PASS, every probe at rank 1**
+  (GeometricController · thruster model · ScalarFieldBelief · ekf · pixhawk ·
+  pressure sensor · install ros · uart · uvms · runpod). Zero console errors.
+- **runpod-mcp fixture scrub pushed** (Kyle-approved): commit `f58e486` on
+  kyle-nelson-berkeley/runpod-mcp main — only the two test files, applied in Kyle's
+  local checkout after the shared-tree check (working tree was clean, in sync with
+  origin). Full offline suite in the real checkout: 414 passed, 7 skipped, before and
+  after. Verified on GitHub HEAD: old id 0 occurrences.
+- Not touched (still gated): the HippoCampusRobotics org, any other public repo, the
+  old-site password heads-up (decision sits with Kyle).
