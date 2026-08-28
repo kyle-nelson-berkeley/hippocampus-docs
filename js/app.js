@@ -9,6 +9,7 @@
   const sidebar = $('#sidebar');
   const DATA = {};          // site, setup, projects, tools
   const mdCache = {};       // path -> markdown text
+  let routeEpoch = 0;       // bumped per navigation; async views must not paint stale
 
   // ---------- utilities ----------
   function slugify(text) {
@@ -195,7 +196,9 @@
     if (!page) throw new Error(`No setup page “${pageId}”`);
     sidebarSetup(pageId);
     setTitle([page.title, 'Setup']);
+    const epoch = routeEpoch;
     const md = await fetchMD(page.file);
+    if (epoch !== routeEpoch) return;
     content.innerHTML = '';
     const body = renderMarkdown(md);
     // prev / next
@@ -242,7 +245,9 @@
     if (!p) throw new Error(`No project “${id}”`);
     sidebarList('Projects', DATA.projects.projects, '/projects', id);
     setTitle([p.name, 'Projects']);
+    const epoch = routeEpoch;
     const md = await fetchMD(p.file);
+    if (epoch !== routeEpoch) return;
     const repoRows = p.repos.map((r) => `
       <li class="repo-row"><a class="chip" href="${esc(r.url)}">${esc(r.name)}</a>
       <span class="role">${esc(r.role || '')}</span></li>`).join('');
@@ -289,7 +294,9 @@
     if (!t) throw new Error(`No tool “${id}”`);
     sidebarList('Agent tools', DATA.tools.tools, '/tools', id);
     setTitle([t.name, 'Agent tools']);
+    const epoch = routeEpoch;
     const md = await fetchMD(t.file);
+    if (epoch !== routeEpoch) return;
     content.innerHTML = '';
     content.appendChild(el(`<a class="back-link" href="#/tools">← All tools</a>`));
     content.appendChild(renderMarkdown(md));
@@ -299,7 +306,9 @@
   async function viewAbout(anchor) {
     sidebar.innerHTML = '';
     setTitle(['About']);
+    const epoch = routeEpoch;
     const md = await fetchMD('content/about.md');
+    if (epoch !== routeEpoch) return;
     content.innerHTML = '';
     content.appendChild(renderMarkdown(md));
     scrollToAnchor(anchor);
@@ -317,13 +326,15 @@
     sidebar.innerHTML = '';
     setTitle([`Search: ${query}`]);
     content.innerHTML = '<div class="search-results"><h1>Search</h1><p class="lead">Searching…</p></div>';
+    const epoch = routeEpoch;
     let res;
     try {
       res = await HCSearch.query(query);
     } catch (err) {
-      errorPanel(err);
+      if (epoch === routeEpoch) errorPanel(err);
       return;
     }
+    if (epoch !== routeEpoch) return;
     const rows = res.results.map((r) => `
       <div class="result">
         <a class="title" href="${esc(r.href)}"${r.href.startsWith('http') ? ' target="_blank" rel="noopener"' : ''}>${esc(r.title)}</a>
@@ -341,6 +352,7 @@
 
   // ---------- router ----------
   async function route() {
+    routeEpoch += 1;
     const hash = location.hash || '#/';
     const [pathPart, anchor] = hash.slice(1).split('@');
     const [path, queryStr] = pathPart.split('?');
