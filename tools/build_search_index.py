@@ -150,12 +150,36 @@ def build_cad_shard():
             "skipped": "OldVersions/, sync-conflict files, dotfiles"}
 
 
+def rebuild_site_only():
+    """Refresh search/site.json after content edits (plain python3, no graphify)."""
+    out_dir = ROOT / "search"
+    manifest_p = out_dir / "manifest.json"
+    manifest = json.loads(manifest_p.read_text())
+    site = build_site_shard()
+    data = compact_dump({"kind": "site", "entries": site})
+    (out_dir / "site.json").write_text(data, encoding="utf-8")
+    for s in manifest["shards"]:
+        if s["file"] == "search/site.json":
+            s["entries"] = len(site)
+            s["bytes"] = len(data.encode())
+    manifest_p.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+    print(f"site.json rebuilt: {len(site)} entries, {len(data.encode())} bytes")
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--repos-dir", type=Path, required=True)
-    ap.add_argument("--branches", type=Path, required=True)
+    ap.add_argument("--site-only", action="store_true",
+                    help="rebuild only the site-pages shard (no clones, no graphify)")
+    ap.add_argument("--repos-dir", type=Path)
+    ap.add_argument("--branches", type=Path)
     ap.add_argument("--fork-trees", type=Path)
     args = ap.parse_args()
+
+    if args.site_only:
+        rebuild_site_only()
+        return
+    if not args.repos_dir or not args.branches:
+        ap.error("--repos-dir and --branches are required for a full build (or use --site-only)")
 
     branches = {b["name"]: b["branch"] for b in json.loads(args.branches.read_text())}
     org = json.loads((ROOT / "data/org-repos.json").read_text())

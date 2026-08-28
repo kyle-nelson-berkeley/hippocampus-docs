@@ -47,7 +47,9 @@ org repo in exactly one project). Never weaken a check to get to green — fix t
 
 ## Status
 
-Phase 1: local only, not yet published — creating the public staging repo + GitHub Pages
-is gated on Kyle's approval (see `docs/site-plan.md` §8). Search currently covers
-registries; the precomputed code/CAD index is phase 2 (`data/search-probes.json` holds
-the 10 acceptance probes).
+Phases 0–4 built and verified locally; **not yet published** — creating the public
+staging repo + GitHub Pages is gated on Kyle's approval (`docs/site-plan.md` §8).
+Search runs on the committed precomputed index (`search/`, 75 shards, 0.41 MB;
+10/10 acceptance probes at rank 1 — `data/search-probes.json`). Agent editing goes
+through the private onboarding repo's `hippo-site` MCP server
+(github.com/kyle-nelson-berkeley/hippocampus-team-onboarding, private).
