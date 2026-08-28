@@ -97,3 +97,25 @@ result files under `~/.claude-os/prompts/`.
   standalone-clone limitation).
 - No public repo touched; nothing published. codex-review skipped per the brief's rule
   (prose/docs-only phase; the patch was verified by running the target repo's tests).
+
+## Phase 4 — private onboarding repo + site-update MCP · 2026-08-28
+
+- **`hippocampus-team-onboarding` exists, PRIVATE, on Kyle's account** (verified
+  `visibility: PRIVATE`): README bootstrap path (~10 min), `.mcp.json.example`,
+  CONVENTIONS.md, and `site-mcp/` — a ZERO-dependency stdlib MCP server (stdio JSON-RPC,
+  protocol 2024-11-05) with 7 tools: site_status, list_pages, read_page, update_page,
+  create_setup_page, run_check, preview_info.
+- Safety model: every mutation runs the site's check gate and REVERTS on red (or on the
+  gate failing to run); page ids come from registries (no arbitrary paths); refuses to
+  overwrite unregistered drafts; rebuilds the site search shard after edits; never
+  commits (humans/agents review diffs normally). `HIPPO_SITE_DRYRUN=1` makes every
+  mutating tool describe instead of write.
+- **Fresh-clone test (done-bar 6) PASSED**: cloned the private repo from GitHub into a
+  temp dir, followed only the README, ran `site-mcp/test_dryrun.py` — full MCP handshake,
+  7 tools listed, gate GREEN, dry-run update honored, disk byte-identical (sha256), exit 0.
+- codex-review: PASS after fixing 3 findings (draft-overwrite protection, exception-safe
+  rollback, shard-rebuild warnings). Site-repo support changes (--site-only rebuild,
+  CLAUDE.md conventions) also codex-PASSed.
+- Note on the gate ledger: the brief gates PUBLIC repos; this repo is private and
+  done-bar 6 requires it to exist, so it was created without pausing. Fully reversible —
+  Kyle can delete/transfer with one click if he prefers a different home.
