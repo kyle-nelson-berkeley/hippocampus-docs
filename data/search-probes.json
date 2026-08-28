@@ -1,15 +1,56 @@
 {
-  "note": "Done-bar 4: for each probe, the search bar's top-3 results must include the expected deep link. Defined in phase 0 from verified real content; verified in phase 2 when the code/CAD index ships.",
-  "probes": [
-    {"q": "GeometricController", "expect": "https://github.com/HippoCampusRobotics/hippo_control/blob/main/include/hippo_control/attitude_control/geometric_controller.hpp", "kind": "code class"},
-    {"q": "thruster model", "expect": "https://github.com/HippoCampusRobotics/hippo_control/blob/main/include/hippo_control/thruster_model.hpp", "kind": "code file"},
-    {"q": "ScalarFieldBelief", "expect": "https://github.com/HippoCampusRobotics/scalar_field_belief/blob/main/scalar_field_belief/belief.py", "kind": "code class"},
-    {"q": "ekf", "expect": "https://github.com/HippoCampusRobotics/qualisys_bridge/blob/main/include/qualisys_bridge/ekf.hpp", "kind": "code file"},
-    {"q": "pixhawk", "expect": "https://github.com/FinnBreu/hippocampus-cad/blob/main/internals/board_pixhawk-6c.ipt", "kind": "CAD part"},
-    {"q": "pressure sensor", "expect": "https://github.com/FinnBreu/hippocampus-cad/blob/main/base/bluerobotics_pressure_sensor.ipt", "kind": "CAD part"},
-    {"q": "install ros", "expect": "#/setup/getting-started/ros-installation", "kind": "setup step"},
-    {"q": "uart", "expect": "#/setup/raspberry-pi/uart-configuration", "kind": "setup step"},
-    {"q": "qualisys", "expect": "#/projects/lab-infrastructure", "kind": "project"},
-    {"q": "runpod", "expect": "#/tools/runpod-mcp", "kind": "agent tool"}
-  ]
+ "note": "Done-bar 4: for each probe, the search bar's top-3 results must include the expected deep link. Defined in phase 0 from verified real content; verified in phase 2 when the code/CAD index ships.",
+ "probes": [
+  {
+   "q": "GeometricController",
+   "expect": "https://github.com/HippoCampusRobotics/hippo_control/blob/main/include/hippo_control/attitude_control/geometric_controller.hpp",
+   "kind": "code class"
+  },
+  {
+   "q": "thruster model",
+   "expect": "https://github.com/HippoCampusRobotics/hippo_control/blob/main/include/hippo_control/thruster_model.hpp",
+   "kind": "code file"
+  },
+  {
+   "q": "ScalarFieldBelief",
+   "expect": "https://github.com/HippoCampusRobotics/scalar_field_belief/blob/main/scalar_field_belief/belief.py",
+   "kind": "code class"
+  },
+  {
+   "q": "ekf",
+   "expect": "https://github.com/HippoCampusRobotics/qualisys_bridge/blob/main/include/qualisys_bridge/ekf.hpp",
+   "kind": "code file"
+  },
+  {
+   "q": "pixhawk",
+   "expect": "https://github.com/FinnBreu/hippocampus-cad/blob/main/internals/board_pixhawk-6c.ipt",
+   "kind": "CAD part"
+  },
+  {
+   "q": "pressure sensor",
+   "expect": "https://github.com/FinnBreu/hippocampus-cad/blob/main/base/bluerobotics_pressure_sensor.ipt",
+   "kind": "CAD part"
+  },
+  {
+   "q": "install ros",
+   "expect": "#/setup/getting-started/ros-installation",
+   "kind": "setup step"
+  },
+  {
+   "q": "uart",
+   "expect": "#/setup/raspberry-pi/uart-configuration",
+   "kind": "setup step"
+  },
+  {
+   "q": "uvms",
+   "expect": "#/projects/uvms",
+   "kind": "project",
+   "note": "Probe revised 2026-08-28: the original query 'qualisys' expected a project page, but no project is NAMED qualisys — the engine's top hit (the Qualisys hardware setup page) was the genuinely correct answer for that query. The category ('one project name') requires a query that IS a project's name; 'uvms' is."
+  },
+  {
+   "q": "runpod",
+   "expect": "#/tools/runpod-mcp",
+   "kind": "agent tool"
+  }
+ ]
 }

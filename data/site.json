@@ -8,7 +8,7 @@
     {"href": "#/projects", "title": "Projects",
      "text": "What the team builds and has built — every repository in the org, grouped into projects with context, status, and links."},
     {"href": "#/search?q=controller", "title": "Search",
-     "text": "One search box over setup pages, projects, code symbols, and CAD parts, with deep links to the exact file or heading."},
+     "text": "One search box over setup pages, projects, every code repo's symbols, and CAD parts — deep links to the exact file, line, or heading."},
     {"href": "#/tools", "title": "Agent tools",
      "text": "The lab's MCP servers for AI agents — GPU compute and CAD access — documented from scratch for new users."}
   ]

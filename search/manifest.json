@@ -1,0 +1,387 @@
+{
+ "generated": "run tools/build_search_index.py to regenerate",
+ "policy": {
+  "max_shard_bytes": 300000,
+  "forks": "shallow file lists only (docs/site-plan.md \u00a75)"
+ },
+ "shards": [
+  {
+   "file": "search/site.json",
+   "entries": 90,
+   "bytes": 24628
+  },
+  {
+   "file": "search/cad.json",
+   "entries": 90,
+   "bytes": 4963,
+   "note": "OldVersions/, sync-conflict files, dotfiles"
+  },
+  {
+   "file": "search/code-.github.json",
+   "entries": 2,
+   "bytes": 158
+  },
+  {
+   "file": "search/code-TeensyST7735.json",
+   "entries": 66,
+   "bytes": 3592
+  },
+  {
+   "file": "search/code-acoustic_localization.json",
+   "entries": 67,
+   "bytes": 4534
+  },
+  {
+   "file": "search/code-acoustic_msgs.json",
+   "entries": 1,
+   "bytes": 121
+  },
+  {
+   "file": "search/code-acoustic_msgs-release.json",
+   "entries": 1,
+   "bytes": 129
+  },
+  {
+   "file": "search/code-acoustic_simulator.json",
+   "entries": 97,
+   "bytes": 6578
+  },
+  {
+   "file": "search/code-alpha_msgs.json",
+   "entries": 1,
+   "bytes": 118
+  },
+  {
+   "file": "search/code-apriltag_viz.json",
+   "entries": 8,
+   "bytes": 629
+  },
+  {
+   "file": "search/code-bag2to1.json",
+   "entries": 2,
+   "bytes": 189
+  },
+  {
+   "file": "search/code-buildbot.json",
+   "entries": 16,
+   "bytes": 1006
+  },
+  {
+   "file": "search/code-buttons.json",
+   "entries": 103,
+   "bytes": 5728
+  },
+  {
+   "file": "search/code-buttons_msgs.json",
+   "entries": 1,
+   "bytes": 120
+  },
+  {
+   "file": "search/code-camera.json",
+   "entries": 24,
+   "bytes": 1370
+  },
+  {
+   "file": "search/code-control.json",
+   "entries": 37,
+   "bytes": 2149
+  },
+  {
+   "file": "search/code-docs.json",
+   "entries": 2,
+   "bytes": 143
+  },
+  {
+   "file": "search/code-dvl.json",
+   "entries": 68,
+   "bytes": 3756
+  },
+  {
+   "file": "search/code-dvl_msgs.json",
+   "entries": 1,
+   "bytes": 116
+  },
+  {
+   "file": "search/code-esc.json",
+   "entries": 66,
+   "bytes": 3802
+  },
+  {
+   "file": "search/code-esc_serial.json",
+   "entries": 63,
+   "bytes": 3078
+  },
+  {
+   "file": "search/code-event_camera_example.json",
+   "entries": 19,
+   "bytes": 1370
+  },
+  {
+   "file": "search/code-fav_docs.json",
+   "entries": 1,
+   "bytes": 112
+  },
+  {
+   "file": "search/code-gantry.json",
+   "entries": 170,
+   "bytes": 12993
+  },
+  {
+   "file": "search/code-gantry_control.json",
+   "entries": 54,
+   "bytes": 3311
+  },
+  {
+   "file": "search/code-gantry_gui.json",
+   "entries": 130,
+   "bytes": 9697
+  },
+  {
+   "file": "search/code-gantry_msgs.json",
+   "entries": 1,
+   "bytes": 119
+  },
+  {
+   "file": "search/code-hardware.json",
+   "entries": 58,
+   "bytes": 3543
+  },
+  {
+   "file": "search/code-hardware_interfaces.json",
+   "entries": 44,
+   "bytes": 2251
+  },
+  {
+   "file": "search/code-hippo-christmas.json",
+   "entries": 3,
+   "bytes": 190
+  },
+  {
+   "file": "search/code-hippo-release.json",
+   "entries": 28,
+   "bytes": 1672
+  },
+  {
+   "file": "search/code-hippo_common.json",
+   "entries": 156,
+   "bytes": 10330
+  },
+  {
+   "file": "search/code-hippo_common_msgs.json",
+   "entries": 1,
+   "bytes": 125
+  },
+  {
+   "file": "search/code-hippo_control.json",
+   "entries": 295,
+   "bytes": 26317
+  },
+  {
+   "file": "search/code-hippo_control_msgs.json",
+   "entries": 1,
+   "bytes": 126
+  },
+  {
+   "file": "search/code-hippo_core.json",
+   "entries": 9,
+   "bytes": 847
+  },
+  {
+   "file": "search/code-hippo_deployment.json",
+   "entries": 1,
+   "bytes": 124
+  },
+  {
+   "file": "search/code-hippo_full.json",
+   "entries": 1,
+   "bytes": 118
+  },
+  {
+   "file": "search/code-hippo_gz_plugins.json",
+   "entries": 87,
+   "bytes": 5471
+  },
+  {
+   "file": "search/code-hippo_msgs.json",
+   "entries": 1,
+   "bytes": 118
+  },
+  {
+   "file": "search/code-hippo_sim.json",
+   "entries": 93,
+   "bytes": 5526
+  },
+  {
+   "file": "search/code-hippo_simulation.json",
+   "entries": 181,
+   "bytes": 13358
+  },
+  {
+   "file": "search/code-hippocampus_common.json",
+   "entries": 40,
+   "bytes": 2733
+  },
+  {
+   "file": "search/code-hippocampus_sim.json",
+   "entries": 8,
+   "bytes": 738
+  },
+  {
+   "file": "search/code-hippocampusrobotics.github.io.json",
+   "entries": 12,
+   "bytes": 650
+  },
+  {
+   "file": "search/code-hippolink.json",
+   "entries": 62,
+   "bytes": 3830
+  },
+  {
+   "file": "search/code-hippolink_ros.json",
+   "entries": 54,
+   "bytes": 3257
+  },
+  {
+   "file": "search/code-howto.json",
+   "entries": 16,
+   "bytes": 1051
+  },
+  {
+   "file": "search/code-ir_adc_read.json",
+   "entries": 10,
+   "bytes": 716
+  },
+  {
+   "file": "search/code-ir_field_hardware.json",
+   "entries": 1,
+   "bytes": 125
+  },
+  {
+   "file": "search/code-mavlink_headers.json",
+   "entries": 394,
+   "bytes": 31437,
+   "note": "dropped {'fn': 5669}"
+  },
+  {
+   "file": "search/code-mjpeg_cam.json",
+   "entries": 48,
+   "bytes": 2666
+  },
+  {
+   "file": "search/code-multi_uuv.json",
+   "entries": 43,
+   "bytes": 2377
+  },
+  {
+   "file": "search/code-path_planning.json",
+   "entries": 68,
+   "bytes": 3999
+  },
+  {
+   "file": "search/code-python-onramp.json",
+   "entries": 2,
+   "bytes": 167
+  },
+  {
+   "file": "search/code-qualisys_bridge.json",
+   "entries": 374,
+   "bytes": 25595
+  },
+  {
+   "file": "search/code-radio_firmware.json",
+   "entries": 138,
+   "bytes": 6099
+  },
+  {
+   "file": "search/code-radio_tools.json",
+   "entries": 139,
+   "bytes": 8700
+  },
+  {
+   "file": "search/code-rapid_trajectories.json",
+   "entries": 343,
+   "bytes": 23576
+  },
+  {
+   "file": "search/code-rapid_trajectories_msgs.json",
+   "entries": 1,
+   "bytes": 131
+  },
+  {
+   "file": "search/code-remote_control.json",
+   "entries": 14,
+   "bytes": 1040
+  },
+  {
+   "file": "search/code-rqt_gantry.json",
+   "entries": 81,
+   "bytes": 5635
+  },
+  {
+   "file": "search/code-scalar_field_belief.json",
+   "entries": 61,
+   "bytes": 3964
+  },
+  {
+   "file": "search/code-scalar_field_sim.json",
+   "entries": 86,
+   "bytes": 5490
+  },
+  {
+   "file": "search/code-sdr.json",
+   "entries": 19,
+   "bytes": 973
+  },
+  {
+   "file": "search/code-stabilizer.json",
+   "entries": 13,
+   "bytes": 797
+  },
+  {
+   "file": "search/code-state_estimation.json",
+   "entries": 235,
+   "bytes": 14209
+  },
+  {
+   "file": "search/code-state_estimation_msgs.json",
+   "entries": 1,
+   "bytes": 129
+  },
+  {
+   "file": "search/code-switch.json",
+   "entries": 71,
+   "bytes": 3238
+  },
+  {
+   "file": "search/code-teensy_esc_controller.json",
+   "entries": 17,
+   "bytes": 942
+  },
+  {
+   "file": "search/code-uvms.json",
+   "entries": 841,
+   "bytes": 77519
+  },
+  {
+   "file": "search/code-uvms_msgs.json",
+   "entries": 1,
+   "bytes": 117
+  },
+  {
+   "file": "search/code-vision.json",
+   "entries": 14,
+   "bytes": 1155
+  },
+  {
+   "file": "search/code-visual_localization.json",
+   "entries": 85,
+   "bytes": 5202
+  },
+  {
+   "file": "search/forks.json",
+   "entries": 204,
+   "bytes": 7601,
+   "note": "top-level file lists only, by policy"
+  }
+ ]
+}

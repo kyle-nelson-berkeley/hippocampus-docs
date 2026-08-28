@@ -184,8 +184,8 @@
             </a>`).join('')}
         </div>
         <p style="margin-top:2.5rem" class="lead">Looking for something specific?
-        Use the search box above — it covers setup pages, projects, and tools
-        <em>(full code &amp; CAD search lands with the search index build)</em>.</p>
+        Use the search box above — it covers setup pages, projects, tools, every code
+        repository's classes and functions, and the CAD part list.</p>
       </div>`;
   }
 
@@ -310,62 +310,32 @@
     return viewSetupPage('start/index', null);
   }
 
-  // ---------- search (phase-1: registries; code+CAD index lands in phase 2) ----------
-  function searchCorpus() {
-    const items = [];
-    DATA.setup.sections.forEach((s) => s.pages.forEach((p) => items.push({
-      kind: 'setup', title: p.title, where: `Setup · ${s.title}`,
-      href: `#/setup/${p.id}`, text: `${s.title} ${p.old || ''}`,
-    })));
-    DATA.projects.projects.forEach((p) => {
-      items.push({
-        kind: 'project', title: p.name, where: 'Project',
-        href: `#/projects/${p.id}`, text: `${p.tagline} ${p.repos.map((r) => r.name).join(' ')}`,
-      });
-      p.repos.forEach((r) => items.push({
-        kind: 'repo', title: r.name, where: `Repo · ${p.name}`,
-        href: `#/projects/${p.id}`, text: `${r.role || ''} ${r.desc || ''}`,
-      }));
-    });
-    DATA.tools.tools.forEach((t) => items.push({
-      kind: 'tool', title: t.name, where: 'Agent tool',
-      href: `#/tools/${t.id}`, text: t.tagline,
-    }));
-    return items;
-  }
+  // ---------- search (precomputed static index; see js/search.js) ----------
+  const KIND_LABEL = { page: 'page', class: 'class', fn: 'function', file: 'file', cad: 'CAD part', fork: 'fork file' };
 
-  function viewSearch(query) {
+  async function viewSearch(query) {
     sidebar.innerHTML = '';
     setTitle([`Search: ${query}`]);
-    const q = query.toLowerCase().trim();
-    const terms = q.split(/\s+/).filter(Boolean);
-    const scored = [];
-    searchCorpus().forEach((item) => {
-      const title = item.title.toLowerCase();
-      const text = (item.text || '').toLowerCase();
-      let score = 0;
-      terms.forEach((t) => {
-        if (title === t) score += 100;
-        else if (title.includes(t)) score += 40;
-        if (text.includes(t)) score += 10;
-      });
-      if (score > 0) scored.push([score, item]);
-    });
-    scored.sort((a, b) => b[0] - a[0]);
-    const rows = scored.slice(0, 30).map(([, it]) => `
+    content.innerHTML = '<div class="search-results"><h1>Search</h1><p class="lead">Searching…</p></div>';
+    let res;
+    try {
+      res = await HCSearch.query(query);
+    } catch (err) {
+      errorPanel(err);
+      return;
+    }
+    const rows = res.results.map((r) => `
       <div class="result">
-        <a class="title" href="${it.href}">${esc(it.title)}</a>
-        <span class="where">${esc(it.where)}</span>
+        <a class="title" href="${esc(r.href)}"${r.href.startsWith('http') ? ' target="_blank" rel="noopener"' : ''}>${esc(r.title)}</a>
+        <span class="where">${esc(r.where)} · ${esc(KIND_LABEL[r.kind] || r.kind)}</span>
+        <p>${esc(r.snippet)}</p>
       </div>`).join('');
     content.innerHTML = `
       <div class="search-results">
         <h1>Search</h1>
-        <p class="lead">${scored.length} result${scored.length === 1 ? '' : 's'} for
-        “${esc(query)}” across page titles, projects, repos, and tools.</p>
-        <div class="adm adm-note"><p class="adm-title">Scope</p>
-        <p>This is the phase-1 registry search. Full-text search over every code repo
-        and the CAD parts list ships with the precomputed index (phase 2).</p></div>
-        ${rows || '<p>No results. Try a shorter or different term.</p>'}
+        <p class="lead">${res.results.length ? res.results.length : 'No'} result${res.results.length === 1 ? '' : 's'} for
+        “${esc(query)}” across ${res.total.toLocaleString()} indexed pages, code symbols, CAD parts, and files.</p>
+        ${rows || '<p>Try a symbol name, a part name, a setup topic, or a project.</p>'}
       </div>`;
   }
 
@@ -387,7 +357,7 @@
       else if (seg[0] === 'search') {
         navHighlight(null);
         const q = new URLSearchParams(queryStr || '').get('q') || '';
-        viewSearch(q);
+        await viewSearch(q);
       } else { throw new Error(`Unknown page: ${path}`); }
       if (!anchor) window.scrollTo({ top: 0, behavior: 'instant' });
     } catch (err) {
