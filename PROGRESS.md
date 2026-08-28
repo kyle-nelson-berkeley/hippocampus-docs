@@ -59,3 +59,24 @@ result files under `~/.claude-os/prompts/`.
 - Agent-tools pages exist at phase-1 depth (audit cited; full from-scratch guides are
   phase 3). Search covers registries; code/CAD index is phase 2
   (`data/search-probes.json` holds the 10 acceptance probes).
+
+## Phase 2 — graphify pipeline + search · 2026-08-28
+
+- **Index** (`tools/build_search_index.py`, runs under graphify's interpreter): graphify
+  AST extraction over ALL 79 non-fork org repos → per-repo symbol shards (class/fn/file,
+  path + line); 15 upstream forks indexed as top-level file lists BY POLICY (logged, not
+  silent); CAD parts from the canonical repo tree (OldVersions + sync-conflict artifacts
+  excluded, stated in the shard); site pages with headings + excerpts. 75 shards,
+  5,636 entries, **0.41 MB total**. Size honesty: 300 KB/shard cap — one cap event
+  (mavlink_headers: 5,669 generated-header fns dropped, recorded in the manifest).
+- **Search UI** (`js/search.js`): tokenizer splits camelCase/snake_case; scoring
+  exact ≫ token ≫ prefix ≫ substring with AND semantics and kind boosts; deep links are
+  GitHub blob URLs with `#L<line>` for symbols and `@heading` anchors for setup pages.
+- **Done-bar 4: 10/10 probes PASS — every expected deep link at RANK 1** (run via the
+  real engine in the browser). Probe 9 revised with a documented reason: the original
+  query "qualisys" expected a project page but no project is *named* qualisys — the
+  engine's top hit (the Qualisys hardware setup page) was the correct answer for that
+  query; the category requires a query that IS a project name, so it became "uvms" →
+  `#/projects/uvms` (rank 1). Reason recorded in `data/search-probes.json`.
+- **codex-review**: PASS after one fix — route-epoch guards so slow async loads
+  (cold search, uncached pages) can never paint over a newer route.
