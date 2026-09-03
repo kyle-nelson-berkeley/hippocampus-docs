@@ -17,6 +17,11 @@ Image URLs must answer 200 — a broken image is a broken page, so any failure i
 fatal. People links are advisory unless --strict: a transient tuhh.de outage
 must never teach a future editor to delete a link that is in fact fine.
 
+Links on BOT_BLOCKED_HOSTS are reported as "unverifiable", never passing and
+never fatal: those hosts answer every anonymous request with an anti-bot status
+(LinkedIn: HTTP 999) whether the page exists or not, so a probe result carries
+no liveness information either way. Verify those in a real browser.
+
 Stdlib only (urllib) — no dependencies, like every other tool here.
 """
 import argparse
@@ -29,6 +34,7 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent
 CLOUDINARY_RE = re.compile(r"https?://res\.cloudinary\.com/[^\s)\"'<>\]]+")
@@ -36,6 +42,11 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 TIMEOUT = 15
 WORKERS = 4          # polite: a handful of connections, never a flood
+
+# Hosts that answer EVERY anonymous request with an anti-bot status (LinkedIn:
+# HTTP 999), for live and dead pages alike — a probe result carries no liveness
+# information. Links here are reported as unverifiable, not passed or failed.
+BOT_BLOCKED_HOSTS = {"linkedin.com", "www.linkedin.com"}
 
 
 def _walk(node, path=""):
@@ -159,8 +170,10 @@ def main():
     args = ap.parse_args()
 
     images, links = collect()
+    unverifiable = sorted(
+        u for u in links if urlsplit(u).hostname in BOT_BLOCKED_HOSTS)
     img_results = run(images)
-    link_results = run(links)
+    link_results = run(links - set(unverifiable))
 
     img_bad = [(u, d) for u, (ok, d) in img_results if not ok]
     link_bad = [(u, d) for u, (ok, d) in link_results if not ok]
@@ -168,8 +181,11 @@ def main():
     print(f"images: {len(img_results)} referenced / "
           f"{len(img_results) - len(img_bad)} passing")
     if links:
-        print(f"people links: {len(link_results)} referenced / "
-              f"{len(link_results) - len(link_bad)} passing")
+        line = (f"people links: {len(links)} referenced / "
+                f"{len(link_results) - len(link_bad)} passing")
+        if unverifiable:
+            line += f" / {len(unverifiable)} unverifiable (bot-blocked host)"
+        print(line)
 
     if img_bad:
         print(f"\ndead image URL — the page is broken until this serves again "
@@ -182,11 +198,20 @@ def main():
               f"{'' if args.strict else ', non-fatal'}):")
         for u, d in link_bad:
             print(f"  {'✗' if args.strict else '!'} {u} — {d}")
+    if unverifiable:
+        print(f"\nunverifiable — the host blocks anonymous probes; open in a "
+              f"browser to verify ({len(unverifiable)}):")
+        for u in unverifiable:
+            print(f"  ? {u}")
 
     fatal = bool(img_bad) or (args.strict and bool(link_bad))
     if fatal:
         sys.exit(1)
-    print("check_urls.py: all reachable")
+    if unverifiable:
+        print(f"check_urls.py: all probeable URLs reachable "
+              f"({len(unverifiable)} unverifiable listed above)")
+    else:
+        print("check_urls.py: all reachable")
     sys.exit(0)
 
 

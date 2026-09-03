@@ -15,7 +15,7 @@ candidates. `tools/check_urls.py` probes every non-null link for liveness.*
 | Kyle Nelson | RESOLVED 2026-09-03 (was flagged: the auto-generated project URL `portfolio-kyle-nelson-berkeleys-projects.vercel.app` 302s to Vercel SSO). Kyle supplied the public production alias, which serves the latest production deployment without disabling deployment protection — verified 200 anonymously. | https://kyle-nelson-berkeley.vercel.app |
 | Nathalie Bauschmann | Personal TUHH page, verified 200 | https://www.tuhh.de/mum/team/wimi/nathalie-bauschmann |
 | Vincent Lenz | Personal TUHH page, verified 200 | https://www.tuhh.de/mum/team/wimi/vincent-lenz |
-| Finn Busch | No TUHH page (404). Identity of the KTH RPL PhD student is ≥90% certain (LinkedIn: KTH + Hamburg University of Technology), but no stable page of his shows the TUHH affiliation: finnbusch.com is a bare project redirector, and kth.se/profile/flbusch has no bio. No link by rule; candidates for Kyle: https://www.finnbusch.com/ · https://www.kth.se/profile/flbusch/ · https://github.com/finnBsch | none |
+| Finn Breuer | CORRECTED BY KYLE 2026-09-03: the lab people page lists him as "Finn Busch" — that surname is wrong (their page's error, left for Nathalie to fix on their site). The earlier KTH-RPL candidate research chased that wrong name and is moot. Link supplied directly by Kyle (LinkedIn, tracking params stripped). LinkedIn blocks anonymous probes (HTTP 999 for live and dead profiles alike), so check_urls.py reports this link as unverifiable rather than passing/failing it — verify in a browser. | https://www.linkedin.com/in/finnj-breuer/ |
 
 ## Alumni
 
