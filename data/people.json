@@ -1,0 +1,154 @@
+{
+  "groups": [
+    {
+      "id": "active",
+      "title": "Team",
+      "people": [
+        {
+          "name": "Kyle Nelson",
+          "title": "Visiting Researcher",
+          "photo": null,
+          "link": null
+        },
+        {
+          "name": "Nathalie Bauschmann",
+          "title": "Research Associate",
+          "photo": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431429/hippocampus-docs/people/nathalie-bauschmann.jpg",
+          "link": "https://www.tuhh.de/mum/team/wimi/nathalie-bauschmann"
+        },
+        {
+          "name": "Vincent Lenz",
+          "title": "Research Associate",
+          "photo": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431437/hippocampus-docs/people/vincent-lenz.jpg",
+          "link": "https://www.tuhh.de/mum/team/wimi/vincent-lenz"
+        },
+        {
+          "name": "Finn Busch",
+          "title": "Master Student",
+          "photo": null,
+          "link": null
+        }
+      ]
+    },
+    {
+      "id": "alumni",
+      "title": "Alumni",
+      "people": [
+        {
+          "name": "Thies Lennart Alff",
+          "title": "Research Associate",
+          "photo": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431434/hippocampus-docs/people/thies-lennart-alff.jpg",
+          "link": "https://www.tuhh.de/mum/team/wimi/thies-lennart-alff"
+        },
+        {
+          "name": "Daniel-André Dücker",
+          "title": "Senior Scientist (TUM)",
+          "photo": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431423/hippocampus-docs/people/daniel-andre-duecker.jpg",
+          "link": "https://www.tuhh.de/mum/team/wimi/daniel-duecker"
+        },
+        {
+          "name": "Niklas Trekel",
+          "title": "Master Student",
+          "photo": null,
+          "link": "https://www.ipb.uni-bonn.de/people/niklas-trekel/index.html"
+        },
+        {
+          "name": "Richard Wittmüß",
+          "title": "Master Student",
+          "photo": null,
+          "link": null
+        },
+        {
+          "name": "Eugen Solowjow",
+          "title": "Research Associate",
+          "photo": null,
+          "link": "https://www.tuhh.de/mum/team/wimi/eugen-solowjow"
+        },
+        {
+          "name": "Axel Hackbarth",
+          "title": "Research Associate",
+          "photo": null,
+          "link": "https://www.tuhh.de/mum/team/wimi/axel-hackbarth"
+        },
+        {
+          "name": "Tim Hansen",
+          "title": "Master Student",
+          "photo": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431435/hippocampus-docs/people/tim-hansen.jpg",
+          "link": null
+        },
+        {
+          "name": "René Hochdahl",
+          "title": "Master Student",
+          "photo": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431430/hippocampus-docs/people/rene-hochdahl.jpg",
+          "link": "https://www.tuhh.de/mum/team/wimi/rene-hochdahl"
+        },
+        {
+          "name": "Roman Sartorti",
+          "title": "Master Student",
+          "photo": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431432/hippocampus-docs/people/roman-sartorti.jpg",
+          "link": "https://www.tuhh.de/skf/institute/staff/roman-sartorti"
+        },
+        {
+          "name": "Malte Flehmke",
+          "title": "Master Student",
+          "photo": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431427/hippocampus-docs/people/malte-flehmke.jpg",
+          "link": "https://www.tuhh.de/ipmt/das-ipmt/team/mf"
+        },
+        {
+          "name": "Benedikt Mersch",
+          "title": "Master Student",
+          "photo": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431421/hippocampus-docs/people/benedikt-mersch.jpg",
+          "link": "https://www.ipb.uni-bonn.de/people/benedikt-mersch/index.html"
+        },
+        {
+          "name": "Matti Vahs",
+          "title": "Master Student",
+          "photo": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431428/hippocampus-docs/people/matti-vahs.jpg",
+          "link": "https://www.kth.se/profile/vahs"
+        },
+        {
+          "name": "Lukas Büsch",
+          "title": "Bachelor Student",
+          "photo": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431425/hippocampus-docs/people/lukas-buesch.jpg",
+          "link": "https://www.tuhh.de/ifpt/institut/mitarbeiter/wissenschaftliche-mitarbeiter/lukas-buesch-msc"
+        },
+        {
+          "name": "Philip Carstensen",
+          "title": "Master Student",
+          "photo": null,
+          "link": "https://www.tuhh.de/mum/team/wimi/philip-carstensen"
+        },
+        {
+          "name": "Kevin Eusemann",
+          "title": "",
+          "photo": null,
+          "link": null
+        },
+        {
+          "name": "Sean Maroofi",
+          "title": "",
+          "photo": null,
+          "link": null
+        },
+        {
+          "name": "Viktor Rausch",
+          "title": "",
+          "photo": null,
+          "link": null
+        },
+        {
+          "name": "René Geist",
+          "title": "",
+          "photo": null,
+          "link": "https://andregeist.github.io/"
+        },
+        {
+          "name": "Tobias Johannink",
+          "title": "",
+          "photo": null,
+          "link": null
+        }
+      ]
+    }
+  ]
+}

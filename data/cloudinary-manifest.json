@@ -288,6 +288,94 @@
       "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428923/hippocampus-docs/setup/thrusters.png",
       "bytes": 4536328,
       "sha256": "c002720b197f716ece6e6ddb3cd68bd0b622892052058e11ceaabd0b30265f9b"
+    },
+    {
+      "source": "assets/people/benedikt-mersch.jpg",
+      "folder": "hippocampus-docs/people",
+      "public_id": "hippocampus-docs/people/benedikt-mersch",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431421/hippocampus-docs/people/benedikt-mersch.jpg",
+      "bytes": 809827,
+      "sha256": "d062e61cf903ef3b4e3a2d643a0f8aa261ac927d9c06b75df4bfb75d0fb44e6d"
+    },
+    {
+      "source": "assets/people/daniel-andre-duecker.jpg",
+      "folder": "hippocampus-docs/people",
+      "public_id": "hippocampus-docs/people/daniel-andre-duecker",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431423/hippocampus-docs/people/daniel-andre-duecker.jpg",
+      "bytes": 1284457,
+      "sha256": "1d438d99a64040283adb0c418c8dd3221020cc908ee5d17e98a1edfaeeaee6b7"
+    },
+    {
+      "source": "assets/people/lukas-buesch.jpg",
+      "folder": "hippocampus-docs/people",
+      "public_id": "hippocampus-docs/people/lukas-buesch",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431425/hippocampus-docs/people/lukas-buesch.jpg",
+      "bytes": 310408,
+      "sha256": "95b73cf7ec3fdad8e4addc5bb3810de15be963661019bec36ac8c6b1fe559485"
+    },
+    {
+      "source": "assets/people/malte-flehmke.jpg",
+      "folder": "hippocampus-docs/people",
+      "public_id": "hippocampus-docs/people/malte-flehmke",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431427/hippocampus-docs/people/malte-flehmke.jpg",
+      "bytes": 703561,
+      "sha256": "40a18df23cf1f104e733d1e1231b8922d9b0e9e198c2a8212e89391c7b3b6aef"
+    },
+    {
+      "source": "assets/people/matti-vahs.jpg",
+      "folder": "hippocampus-docs/people",
+      "public_id": "hippocampus-docs/people/matti-vahs",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431428/hippocampus-docs/people/matti-vahs.jpg",
+      "bytes": 41663,
+      "sha256": "bd5e51704dd1f5248bd790c8c39fa9b2120fbee5d5f56c66921b0bca006afbd0"
+    },
+    {
+      "source": "assets/people/nathalie-bauschmann.jpg",
+      "folder": "hippocampus-docs/people",
+      "public_id": "hippocampus-docs/people/nathalie-bauschmann",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431429/hippocampus-docs/people/nathalie-bauschmann.jpg",
+      "bytes": 10648,
+      "sha256": "c2eec8e147d8b6a4c92b5640bb1b8d61f0092afacb95310f88dcdaedf1757d47"
+    },
+    {
+      "source": "assets/people/rene-hochdahl.jpg",
+      "folder": "hippocampus-docs/people",
+      "public_id": "hippocampus-docs/people/rene-hochdahl",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431430/hippocampus-docs/people/rene-hochdahl.jpg",
+      "bytes": 74658,
+      "sha256": "a444b08b5d76cd83ec458781a3bd9a4493ac3547dec533ea09c6349f27623fe6"
+    },
+    {
+      "source": "assets/people/roman-sartorti.jpg",
+      "folder": "hippocampus-docs/people",
+      "public_id": "hippocampus-docs/people/roman-sartorti",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431432/hippocampus-docs/people/roman-sartorti.jpg",
+      "bytes": 434150,
+      "sha256": "9f6db7f83ad042d3d0d71f65cc12b2b8cb74a4c91c1f67f13c8d84b624ea1623"
+    },
+    {
+      "source": "assets/people/thies-lennart-alff.jpg",
+      "folder": "hippocampus-docs/people",
+      "public_id": "hippocampus-docs/people/thies-lennart-alff",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431434/hippocampus-docs/people/thies-lennart-alff.jpg",
+      "bytes": 197785,
+      "sha256": "bebf23f0fea4cef9ae3cd52222d26f4f2c6afc676945c380513a0b59b0abdf72"
+    },
+    {
+      "source": "assets/people/tim-hansen.jpg",
+      "folder": "hippocampus-docs/people",
+      "public_id": "hippocampus-docs/people/tim-hansen",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431435/hippocampus-docs/people/tim-hansen.jpg",
+      "bytes": 311463,
+      "sha256": "4a0285c3fd31d0b5babd7d7144220b193ec144d6ac133d97d4e505a4d376f24d"
+    },
+    {
+      "source": "assets/people/vincent-lenz.jpg",
+      "folder": "hippocampus-docs/people",
+      "public_id": "hippocampus-docs/people/vincent-lenz",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431437/hippocampus-docs/people/vincent-lenz.jpg",
+      "bytes": 38719,
+      "sha256": "a888367bd595a5f2ba75e0ceb924ac84f54f3c6ee9dd99cf3a7995e0d3a220c8"
     }
   ]
 }

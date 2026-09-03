@@ -28,6 +28,9 @@ content it complains about.
 - Projects: facts in `data/projects.json` (strict JSON), prose in
   `content/projects/<id>.md`. Coverage rule: every org repo in exactly one project.
 - Tools: `data/tools.json` + `content/tools/<id>.md`.
+- People roster (About page cards): `data/people.json` — a card is name, title, optional
+  photo (a manifest URL), optional link; link decisions are recorded in
+  `docs/people-links.md`. Cards without a link get no hover affordance.
 - After content changes, refresh the site search shard:
   `python3 tools/build_search_index.py --site-only` (plain python3; the full code
   reindex needs clones + graphify — see the script header).

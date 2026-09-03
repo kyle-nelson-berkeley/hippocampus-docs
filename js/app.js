@@ -303,14 +303,90 @@
     scrollToAnchor(anchor);
   }
 
+  // ---------- people (about page) ----------
+  // Only http(s) URLs are trusted: esc() makes a value attribute-safe, but it would
+  // happily let a `javascript:` href through. data/people.json is hand-edited.
+  function safeHttpUrl(value) {
+    if (typeof value !== 'string') return null;
+    const url = value.trim();
+    return /^https?:\/\//i.test(url) ? url : null;
+  }
+  // data/people.json stores canonical Cloudinary manifest URLs (the rule for editors is
+  // "paste the manifest url"); cards are ~160px wide, so ask the CDN for a card-sized
+  // rendition instead of the original asset. Non-Cloudinary and already-transformed URLs
+  // pass through untouched.
+  const CARD_PHOTO_TX = 'w_320,f_auto,q_auto';
+  function cardPhotoUrl(url) {
+    const m = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(.+)$/.exec(url);
+    if (!m) return url;
+    const first = m[2].split('/')[0];
+    // A transformation segment is comma-joined `key_value` pairs. `v1234` is a version,
+    // and anything ending in a file extension is a public_id, not a transform.
+    const transformed = !/^v\d+$/.test(first) && /^[a-z]+_[^/]+$/.test(first)
+      && !/\.[a-z0-9]{2,4}$/i.test(first);
+    return transformed ? url : `${m[1]}${CARD_PHOTO_TX}/${m[2]}`;
+  }
+  function initials(name) {
+    const letters = name.trim().split(/\s+/).slice(0, 2)
+      .map((word) => Array.from(word)[0] || '').join('');
+    return letters.toUpperCase() || '?';
+  }
+  function personCardHTML(person) {
+    const name = (person && typeof person.name === 'string') ? person.name.trim() : '';
+    if (!name) return '';
+    const photo = safeHttpUrl(person.photo);
+    const media = photo
+      ? `<img class="person-photo" src="${esc(cardPhotoUrl(photo))}" alt="" loading="lazy">`
+      : `<div class="person-initials" aria-hidden="true">${esc(initials(name))}</div>`;
+    const title = (typeof person.title === 'string' && person.title.trim())
+      ? `<span class="person-title">${esc(person.title)}</span>` : '';
+    const inner = `${media}<span class="person-name">${esc(name)}</span>${title}`;
+    const link = safeHttpUrl(person.link);
+    return link
+      ? `<a class="person-card" href="${esc(link)}" target="_blank" rel="noopener">${inner}</a>`
+      : `<div class="person-card is-static">${inner}</div>`;
+  }
+  // Fills the `<div id="people-root">` mount that content/about.md declares. Throws on a
+  // malformed roster so the caller can warn and leave the rest of the page intact.
+  function mountPeople(body, data) {
+    const root = body.querySelector('#people-root');
+    if (!root) return;
+    if (!data || !Array.isArray(data.groups)) throw new Error('data/people.json is malformed');
+    const html = data.groups.map((group) => {
+      const people = Array.isArray(group.people) ? group.people : [];
+      const cards = people.map(personCardHTML).join('');
+      if (!cards) return '';
+      const compact = group.id === 'active' ? '' : ' compact';
+      return `<div class="people-group">
+        <h3>${esc(group.title || '')}</h3>
+        <div class="people-grid${compact}">${cards}</div>
+      </div>`;
+    }).join('');
+    if (!html) { root.remove(); return; }
+    root.appendChild(el(html));
+  }
+
   async function viewAbout(anchor) {
     sidebar.innerHTML = '';
     setTitle(['About']);
     const epoch = routeEpoch;
-    const md = await fetchMD('content/about.md');
+    // The roster is a page-local extra: never let its failure take the About page down.
+    const [md, people] = await Promise.all([
+      fetchMD('content/about.md'),
+      fetchJSON('data/people.json').catch((err) => err),
+    ]);
     if (epoch !== routeEpoch) return;
     content.innerHTML = '';
-    content.appendChild(renderMarkdown(md));
+    const body = renderMarkdown(md);
+    try {
+      if (people instanceof Error) throw people;
+      mountPeople(body, people);
+    } catch (err) {
+      console.warn('People section skipped —', err.message || err);
+      const root = body.querySelector('#people-root');
+      if (root) root.remove();   // no stray empty mount under the heading
+    }
+    content.appendChild(body);
     scrollToAnchor(anchor);
   }
 

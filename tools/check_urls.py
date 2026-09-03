@@ -20,6 +20,7 @@ must never teach a future editor to delete a link that is in fact fine.
 Stdlib only (urllib) — no dependencies, like every other tool here.
 """
 import argparse
+import http.cookiejar
 import json
 import re
 import sys
@@ -90,9 +91,15 @@ def collect(root=ROOT):
 
 
 def _request(url, method):
+    # A fresh cookie jar per request: some university sites (kth.se) answer the
+    # first hit with a silent-auth bounce that only resolves once a cookie is
+    # kept, and a cookie-less client loops until urllib gives up. A jar per call
+    # also keeps this thread-safe under the pool below.
+    opener = urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
     req = urllib.request.Request(url, method=method, headers={
         "User-Agent": UA, "Accept": "*/*"})
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+    with opener.open(req, timeout=TIMEOUT) as resp:
         if method == "GET":
             resp.read(1)            # touch the body, do not download it
         return resp.status
@@ -108,19 +115,22 @@ def _status(url, method):
 
 
 def _attempt(url):
-    """One full attempt: HEAD, then GET when HEAD is refused. -> (ok, detail)"""
+    """One full attempt: HEAD, then GET whenever HEAD does not answer 200.
+
+    HEAD is only an optimisation. Plenty of servers mishandle it — 403, 405, or
+    a bare 400 (kth.se) — so any non-200 HEAD is re-asked as a GET before the
+    URL is called dead. -> (ok, detail)
+    """
     code, netfail = _status(url, "HEAD")
+    if not netfail and code == 200:
+        return True, "200"
+    head_detail = netfail or f"HTTP {code}"
+    code, netfail = _status(url, "GET")
     if netfail:
         return False, netfail
     if code == 200:
         return True, "200"
-    if code in (403, 405, 501) or code >= 500:   # servers that dislike HEAD
-        code, netfail = _status(url, "GET")
-        if netfail:
-            return False, netfail
-        if code == 200:
-            return True, "200"
-    return False, f"HTTP {code}"
+    return False, f"HTTP {code} (HEAD said {head_detail})"
 
 
 def probe(url):

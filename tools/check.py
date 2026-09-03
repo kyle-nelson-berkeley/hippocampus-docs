@@ -19,6 +19,9 @@ Validates, failing loudly with actionable messages:
      transformations are fine), and every manifest entry must be referenced;
   6b. hygiene: no credentials, key material or personal emails in content/**.md,
      data/*.json or .mcp.json;
+  6c. people: data/people.json (when present) carries exactly name/title/photo/
+     link per person, every photo resolves to a manifest entry, every link is an
+     http(s) URL;
   7. shell: index.html references exist; vendored marked.min.js matches its
      pinned sha256;
   8. probes: data/search-probes.json carries exactly 10 well-formed probes.
@@ -329,6 +332,69 @@ def main():
                 referenced_ids.add(pid)
     for pid in sorted(public_ids - referenced_ids):
         err(f"orphan cloudinary asset (uploaded but nothing references it): {pid}")
+
+    # ---- 6c. people roster (data/people.json — optional; older checkouts) ----
+    if people_path.exists():
+        people = load("data/people.json")
+        # Container types first: the About page swallows a malformed roster and
+        # renders nobody, so an empty or wrongly-shaped 'groups' must fail here
+        # rather than quietly ship a people-less page.
+        if not isinstance(people, dict):
+            err(f"data/people.json: top level must be an object with a 'groups' list, "
+                f"got {type(people).__name__}")
+        elif not isinstance(people.get("groups"), list):
+            err(f"data/people.json: 'groups' must be a list, got "
+                f"{type(people.get('groups')).__name__}")
+        elif not people["groups"]:
+            err("data/people.json: 'groups' is empty — the About page would render "
+                "no people at all")
+        else:
+            group_ids = set()
+            for gi, g in enumerate(people["groups"]):
+                if not isinstance(g, dict):
+                    err(f"data/people.json: group #{gi} must be an object, got "
+                        f"{type(g).__name__}")
+                    continue
+                where = f"data/people.json: group {g.get('id') or f'#{gi}'}"
+                if not (isinstance(g.get("id"), str) and g["id"].strip()):
+                    err(f"{where}: 'id' must be a non-empty string")
+                if not (isinstance(g.get("title"), str) and g["title"].strip()):
+                    err(f"{where}: 'title' must be a non-empty string")
+                if g.get("id") in group_ids:
+                    err(f"{where}: duplicate group id")
+                group_ids.add(g.get("id"))
+                if not isinstance(g.get("people"), list):
+                    err(f"{where}: 'people' must be a list, got "
+                        f"{type(g.get('people')).__name__}")
+                    continue
+                for pi, p in enumerate(g["people"]):
+                    if not isinstance(p, dict):
+                        err(f"{where}: person #{pi} must be an object, got "
+                            f"{type(p).__name__}")
+                        continue
+                    who = f"data/people.json: {p.get('name') or '<unnamed>'}"
+                    extra = sorted(set(p) - {"name", "title", "photo", "link"})
+                    if extra:
+                        err(f"{who}: unknown field(s) {extra} — a person is exactly "
+                            f"name/title/photo/link (typo?)")
+                    for key in ("name", "title", "photo", "link"):
+                        if key not in p:
+                            err(f"{who}: missing '{key}'")
+                    if not (isinstance(p.get("name"), str) and p["name"].strip()):
+                        err(f"{who}: 'name' must be a non-empty string")
+                    if not isinstance(p.get("title"), str):
+                        err(f"{who}: 'title' must be a string (\"\" is allowed)")
+                    photo = p.get("photo")
+                    if photo is not None:
+                        if not isinstance(photo, str) or not photo.startswith("https://"):
+                            err(f"{who}: 'photo' must be null or an https URL")
+                        elif resolve_public_id(photo, cloud, public_ids) is None:
+                            err(f"{who}: photo is not in data/cloudinary-manifest.json: "
+                                f"{photo} — upload it and refresh the manifest")
+                    link = p.get("link")
+                    if link is not None and not (isinstance(link, str)
+                                                 and link.startswith(("http://", "https://"))):
+                        err(f"{who}: 'link' must be null or an http(s) URL")
 
     asset_dir = ROOT / "assets"
     always_used = {(asset_dir / "hippo.svg").resolve()}

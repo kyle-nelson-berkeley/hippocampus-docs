@@ -24,6 +24,13 @@ documentation for the lab's agent tools.
   Code symbols come from AST extraction over the org's repositories; CAD parts from the
   canonical CAD repo's file tree.
 
+## People
+
+The lab's members and alumni. The roster lives in `data/people.json` — edit that file to
+change a card.
+
+<div id="people-root"></div>
+
 ## Provenance
 
 - Setup pages carry a footer linking the exact old-site page they were migrated from.
