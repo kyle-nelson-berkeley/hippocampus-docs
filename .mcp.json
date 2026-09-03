@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "cloudinary-asset-mgmt": {
+      "command": "npx",
+      "args": ["-y", "--package", "@cloudinary/asset-management@0.5.9", "--", "mcp", "start"],
+      "env": {
+        "CLOUDINARY_CLOUD_NAME": "${CLOUDINARY_CLOUD_NAME}",
+        "CLOUDINARY_API_KEY": "${CLOUDINARY_API_KEY}",
+        "CLOUDINARY_API_SECRET": "${CLOUDINARY_API_SECRET}"
+      }
+    }
+  }
+}
