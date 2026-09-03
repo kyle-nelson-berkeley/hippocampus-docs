@@ -384,6 +384,22 @@
       "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788447786/hippocampus-docs/brand/hippocampus-mark.png",
       "bytes": 1424553,
       "sha256": "f0d85445f2cc09af57dfde0cb17cf030f7e3274efbdadef5fc1bbd6d6a41ae50"
+    },
+    {
+      "source": "assets/brand/tuhh-teal.png",
+      "folder": "hippocampus-docs/brand",
+      "public_id": "hippocampus-docs/brand/tuhh-teal",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788448119/hippocampus-docs/brand/tuhh-teal.png",
+      "bytes": 9092,
+      "sha256": "9ff7d27318aa707080f7e090bbe24201a86e69a3f2dcb7dffef0f540c025e3fa"
+    },
+    {
+      "source": "assets/brand/tuhh-white.png",
+      "folder": "hippocampus-docs/brand",
+      "public_id": "hippocampus-docs/brand/tuhh-white",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788448120/hippocampus-docs/brand/tuhh-white.png",
+      "bytes": 9142,
+      "sha256": "4061af9be33277166420824ba2a9d86c8769166b149028bd3c4029b05219e9a7"
     }
   ]
 }
