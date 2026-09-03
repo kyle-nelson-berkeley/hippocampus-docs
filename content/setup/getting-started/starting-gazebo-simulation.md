@@ -49,7 +49,7 @@ However, by default, the thrust setpoint will be zero. To move forward, set the 
 $ ros2 topic pub -r 50 /uuv00/thrust_setpoint hippo_control_msgs/msg/ActuatorSetpoint "{x: 0.8}"
 ```
 
-![hippo inf path in simulation](assets/setup/hippo_inf_path_in_simulation.gif)
+![hippo inf path in simulation](https://res.cloudinary.com/dr76gues0/image/upload/v1788428900/hippocampus-docs/setup/hippo_inf_path_in_simulation.gif)
 
 <p class="figcaption">HippoCampus in Gazebo</p>
 

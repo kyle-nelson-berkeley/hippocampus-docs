@@ -47,21 +47,21 @@ The UART functions in the following table depend on whether Raspberry Pi is used
 
 <div class="tab" data-label="UUV">
 
-![pi pinout uuv](assets/setup/pi_pinout_uuv.svg)
+![pi pinout uuv](https://res.cloudinary.com/dr76gues0/image/upload/v1788428836/hippocampus-docs/setup/pi_pinout_uuv.svg)
 
 
 </div>
 
 <div class="tab" data-label="BlueROV (main)">
 
-![pi pinout bluerov](assets/setup/pi_pinout_bluerov.svg)
+![pi pinout bluerov](https://res.cloudinary.com/dr76gues0/image/upload/v1788428906/hippocampus-docs/setup/pi_pinout_bluerov.svg)
 
 
 </div>
 
 <div class="tab" data-label="Gantry">
 
-![pi pinout gantry](assets/setup/pi_pinout_gantry.svg)
+![pi pinout gantry](https://res.cloudinary.com/dr76gues0/image/upload/v1788428911/hippocampus-docs/setup/pi_pinout_gantry.svg)
 
 
 </div>

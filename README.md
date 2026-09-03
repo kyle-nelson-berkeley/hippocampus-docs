@@ -32,8 +32,27 @@ python3 tools/check.py
 ```
 
 It validates strict-JSON registries, file existence both ways (no orphans), internal
-links, image references, the setup parity counts, and the projects-coverage rule (every
-org repo in exactly one project). Never weaken a check to get to green — fix the content.
+links, image references (including the Cloudinary manifest — see below), the setup parity
+counts, and the projects-coverage rule (every org repo in exactly one project). Never
+weaken a check to get to green — fix the content.
+
+When images, the Cloudinary manifest, or people-card links changed, also run the network
+half of the gate — it probes exactly those URLs for liveness (check.py itself stays
+offline; ordinary external links in page prose are not probed):
+
+```sh
+python3 tools/check_urls.py
+```
+
+## Images: Cloudinary
+
+Site images are served from Cloudinary (folder `hippocampus-docs/`), mapped in
+`data/cloudinary-manifest.json` (source file → public_id → URL, with the source's
+sha256). Local originals stay in `assets/` as upload sources — they are not orphans, and
+editing one without re-uploading trips the manifest digest check. To add an image: upload
+it with the cloudinary-upload skill (credentials live in the portfolio repo), add a
+manifest entry, and reference the manifest URL from the page. Still local by design:
+`assets/hippo.svg` (brand mark) and the `.stl`/`.3mf`/`.pdf` download files.
 
 ## Where things come from
 

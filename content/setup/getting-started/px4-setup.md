@@ -271,21 +271,21 @@ In QGC, click on the top left corner icon -&gt; Application settings -&gt; Comm 
 
 
 
-![qgc where to find settings](assets/setup/qgc_where_to_find_settings.png)
+![qgc where to find settings](https://res.cloudinary.com/dr76gues0/image/upload/v1788428918/hippocampus-docs/setup/qgc_where_to_find_settings.png)
 
 <p class="figcaption">Where to find the settings.</p>
 
 Add a TCP comm link with standard settings. Add the vehicle's name and IP address. It should look like this:
 
 
-![qgc manually add tcp connection](assets/setup/qgc_manually_add_tcp_connection.png)
+![qgc manually add tcp connection](https://res.cloudinary.com/dr76gues0/image/upload/v1788428914/hippocampus-docs/setup/qgc_manually_add_tcp_connection.png)
 
 <p class="figcaption">TCP comm link settings for UUV02.</p>
 
 Now, you should be able to connect. The vehicle setup page should open:
 
 
-![qgc vehicle setup](assets/setup/qgc_vehicle_setup.png)
+![qgc vehicle setup](https://res.cloudinary.com/dr76gues0/image/upload/v1788428916/hippocampus-docs/setup/qgc_vehicle_setup.png)
 
 <div class="adm adm-note"><p class="adm-title">Note</p>
 
@@ -302,7 +302,7 @@ After this first manual connection via TCP from your ground control station to t
 You might have to calibrate the vehicle's sensors. Click on Sensors:
 
 
-![qgc sensors setup](assets/setup/qgc_sensors_setup.png)
+![qgc sensors setup](https://res.cloudinary.com/dr76gues0/image/upload/v1788428915/hippocampus-docs/setup/qgc_sensors_setup.png)
 
 and follow the instructions.
 

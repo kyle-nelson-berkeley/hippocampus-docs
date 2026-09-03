@@ -19,6 +19,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PUNCT = set('#*=-^"~+.`:\'_')
+# Images are served from Cloudinary (see data/cloudinary-manifest.json); other
+# downloads (.stl/.3mf/.pdf) stay local. Same set as the upload skill's imageExt
+# and as IMAGE_EXTS in tools/check.py — widen all three together, or a format
+# the converter treats as "not an image" sails past a gate that disagrees.
+IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp',
+                  '.tiff', '.tif', '.avif', '.heic', '.heif'}
 ADMONITIONS = {
     'note': 'Note', 'warning': 'Warning', 'attention': 'Attention',
     'hint': 'Hint', 'important': 'Important', 'tip': 'Tip', 'error': 'Error',
@@ -35,6 +41,21 @@ warnings = []  # (page, message)
 
 def warn(page, msg):
     warnings.append((page, msg))
+
+
+def load_cloudinary_manifest():
+    """site-relative source path -> hosted url. Tolerant on purpose: a missing
+    or unreadable manifest means a pre-migration checkout, where every asset is
+    simply local (exactly the old behaviour)."""
+    try:
+        data = json.loads((ROOT / 'data' / 'cloudinary-manifest.json')
+                          .read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {a['source']: a['url'] for a in data.get('assets', [])
+            if isinstance(a, dict) and a.get('source') and a.get('url')}
 
 
 def slugify(text):
@@ -62,8 +83,10 @@ class Converter:
         self.dropped = {d['old'] for d in structure['dropped']}
         self.labels = {}       # explicit .. _label: -> (old_page, heading_text|None)
         self.page_titles = {}  # old page -> title
-        self.assets = {}       # source Path -> site-relative url
+        self.assets = {}       # source Path -> emitted url (local or Cloudinary)
         self.asset_names = {}  # basename -> source Path (collision check)
+        self.cloudinary = load_cloudinary_manifest()
+        self.needs_upload = []  # images with no manifest entry yet
 
     # ---------- pre-pass: labels + titles over the whole corpus ----------
     def prepass(self):
@@ -144,7 +167,14 @@ class Converter:
 
     # ---------- assets ----------
     def copy_asset(self, spec, page_old):
-        """Copy an image/file into assets/setup; return site-relative url."""
+        """Copy an image/file into assets/setup; return the url to emit.
+
+        Images are served from Cloudinary, so a copied image whose local path is
+        in data/cloudinary-manifest.json emits the hosted URL instead (the local
+        copy stays as the upload source and the fallback). Non-images and images
+        not yet uploaded keep the local path; the latter are collected in
+        self.needs_upload and printed loudly at the end of the run.
+        """
         if spec.startswith('/'):
             src = self.src / spec.lstrip('/')
         else:
@@ -162,7 +192,14 @@ class Converter:
         dest = ROOT / 'assets' / 'setup' / name
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
-        url = f"assets/setup/{name}"
+        local = f"assets/setup/{name}"
+        url = local
+        if Path(name).suffix.lower() in IMAGE_SUFFIXES:
+            hosted = self.cloudinary.get(local)
+            if hosted:
+                url = hosted
+            elif name not in self.needs_upload:
+                self.needs_upload.append(name)
         self.assets[src] = url
         return url
 
@@ -719,6 +756,17 @@ def main():
 
     print(f"pages: {len(parity)}  migrated: {migrated}  dropped: {dropped}")
     print(f"assets copied: {len(conv.assets)}")
+    if conv.needs_upload:
+        print('')
+        print('!' * 70)
+        print(f"{len(conv.needs_upload)} new images need upload — run the Phase A "
+              f"upload step:")
+        for n in conv.needs_upload:
+            print(f"  assets/setup/{n}")
+        print("Until they are uploaded and added to data/cloudinary-manifest.json,")
+        print("tools/check.py will fail on the local image references above.")
+        print('!' * 70)
+        print('')
     print(f"warnings: {len(warnings)}")
     for pg, msg in warnings[:40]:
         print(f"  {pg}: {msg}")

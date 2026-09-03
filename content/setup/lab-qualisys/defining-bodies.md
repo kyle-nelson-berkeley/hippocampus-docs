@@ -18,7 +18,7 @@ The first tricky step is to decide where to glue the markers on the body to be t
 An example for HippoCampus:
 
 
-![hippocampus markers](assets/setup/hippocampus_markers.JPG)
+![hippocampus markers](https://res.cloudinary.com/dr76gues0/image/upload/v1788428902/hippocampus-docs/setup/hippocampus_markers.jpg)
 
 <p class="figcaption">Glued on reflective markers. Not depicted are markers on the bottom. A total of 11 markers is used.</p>
 
@@ -66,7 +66,7 @@ In `6DOF Tracking`, choose `Rotate` for the body to be tracked.
 Ideally, you have positioned your markers so that the x- and y-axis of the body coordinate frame can be chosen between two markers, respectively.
 
 
-![rotate 6dof body](assets/setup/rotate_6dof_body.png)
+![rotate 6dof body](https://res.cloudinary.com/dr76gues0/image/upload/v1788428920/hippocampus-docs/setup/rotate_6dof_body.png)
 
 ### Defining Body Translation
 

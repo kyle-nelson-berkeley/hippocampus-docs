@@ -4,7 +4,7 @@
 The following image depicts the thruster configuration. The numbers correspond to the FCU's PWM outputs. Make sure the propellers are mounted correctly since there are two clockwise and two counterclockwise propellers.
 
 
-![thrusters](assets/setup/thrusters.png)
+![thrusters](https://res.cloudinary.com/dr76gues0/image/upload/v1788428923/hippocampus-docs/setup/thrusters.png)
 
 <p class="figcaption">Motor and propeller configuration.</p>
 

@@ -31,7 +31,7 @@ The following steps describe the 19 mm version. The 14 mm version is identical.
 Print the nut part and bottom part shown in [Fabrication](#/setup/lab-marker/fabrication).
 
 
-![IMG 2502](assets/setup/IMG_2502.jpeg)
+![IMG 2502](https://res.cloudinary.com/dr76gues0/image/upload/v1788428864/hippocampus-docs/setup/IMG_2502.jpg)
 
 <p class="figcaption">3D printed nut part (left) and bottom part (right).</p>
 
@@ -49,9 +49,9 @@ Print the nut part and bottom part shown in [Fabrication](#/setup/lab-marker/fab
 
 <div class="img-grid">
 
-![IMG_2503](assets/setup/IMG_2503.jpeg)
+![IMG_2503](https://res.cloudinary.com/dr76gues0/image/upload/v1788428866/hippocampus-docs/setup/IMG_2503.jpg)
 
-![IMG_2504](assets/setup/IMG_2504.jpeg)
+![IMG_2504](https://res.cloudinary.com/dr76gues0/image/upload/v1788428867/hippocampus-docs/setup/IMG_2504.jpg)
 
 </div>
 
@@ -114,21 +114,21 @@ Do not allow superglue to contact the reflective surface. It may damage the coat
 
 <div class="img-grid">
 
-![IMG_2505](assets/setup/IMG_2505.jpeg)
+![IMG_2505](https://res.cloudinary.com/dr76gues0/image/upload/v1788428869/hippocampus-docs/setup/IMG_2505.jpg)
 
-![IMG_2513](assets/setup/IMG_2513.jpeg)
+![IMG_2513](https://res.cloudinary.com/dr76gues0/image/upload/v1788428874/hippocampus-docs/setup/IMG_2513.jpg)
 
-![IMG_2517](assets/setup/IMG_2517.jpeg)
+![IMG_2517](https://res.cloudinary.com/dr76gues0/image/upload/v1788428876/hippocampus-docs/setup/IMG_2517.jpg)
 
-![IMG_2519](assets/setup/IMG_2519.jpeg)
+![IMG_2519](https://res.cloudinary.com/dr76gues0/image/upload/v1788428878/hippocampus-docs/setup/IMG_2519.jpg)
 
-![IMG_2521](assets/setup/IMG_2521.jpeg)
+![IMG_2521](https://res.cloudinary.com/dr76gues0/image/upload/v1788428880/hippocampus-docs/setup/IMG_2521.jpg)
 
-![IMG_2522](assets/setup/IMG_2522.jpeg)
+![IMG_2522](https://res.cloudinary.com/dr76gues0/image/upload/v1788428881/hippocampus-docs/setup/IMG_2522.jpg)
 
-![IMG_2524](assets/setup/IMG_2524.jpeg)
+![IMG_2524](https://res.cloudinary.com/dr76gues0/image/upload/v1788428883/hippocampus-docs/setup/IMG_2524.jpg)
 
-![IMG_2518](assets/setup/IMG_2518.jpeg)
+![IMG_2518](https://res.cloudinary.com/dr76gues0/image/upload/v1788428877/hippocampus-docs/setup/IMG_2518.jpg)
 
 </div>
 
@@ -150,7 +150,7 @@ Make sure the set screw does not stick out too far. Aim for approximately 10 mm.
 
 </div>
 
-![IMG 2510](assets/setup/IMG_2510.jpeg)
+![IMG 2510](https://res.cloudinary.com/dr76gues0/image/upload/v1788428873/hippocampus-docs/setup/IMG_2510.jpg)
 
 <p class="figcaption">Set screw installed in BlueROV frame.</p>
 

@@ -7,7 +7,7 @@
 The reference point of the gantry is the edge of the z-axis spindle mount as depicted in the image below.
 
 
-![gantry reference frame annotation](assets/setup/gantry_reference_frame_annotation.jpg)
+![gantry reference frame annotation](https://res.cloudinary.com/dr76gues0/image/upload/v1788428897/hippocampus-docs/setup/gantry_reference_frame_annotation.jpg)
 
 The offset to the tank's coordinate system is measured relative to the tank's walls (**not** the steel frame).
 

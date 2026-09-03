@@ -102,7 +102,7 @@ The motor position is stored inside the motion controller and not inside any cod
 1. Run the GUI (see [Run (and use) the GUI](#/setup/lab-gantry/usage@run-and-use-the-gui))
 
 
-![gantry gui screenshot](assets/setup/gantry_gui_screenshot.png)
+![gantry gui screenshot](https://res.cloudinary.com/dr76gues0/image/upload/v1788428892/hippocampus-docs/setup/gantry_gui_screenshot.png)
 
 1. Press the "Go Home" Button for each axis. The motors should start homing.
 
@@ -352,7 +352,7 @@ $ ros2 run gantry_gui manual_control
 A window should open:
 
 
-![gantry gui screenshot](assets/setup/gantry_gui_screenshot.png)
+![gantry gui screenshot](https://res.cloudinary.com/dr76gues0/image/upload/v1788428892/hippocampus-docs/setup/gantry_gui_screenshot.png)
 
 <p class="figcaption">Gantry GUI for manual control.</p>
 
@@ -362,7 +362,7 @@ Remember to home the motors before using them.
 Before you can use the manual control, you need to set a mode:
 
 
-![gantry mode selection](assets/setup/gantry_mode_selection.png)
+![gantry mode selection](https://res.cloudinary.com/dr76gues0/image/upload/v1788428893/hippocampus-docs/setup/gantry_mode_selection.png)
 
 <p class="figcaption">Mode selection: manually control either distance travelled or velocity of motors.</p>
 
@@ -430,9 +430,9 @@ On your own laptop, you can simply edit the default waypoint file. Alternatively
 3. To restart, *all* emergency buttons need to be enabled again. For this, they should all look like the button on the left:
 
 
-    ![gantry emergency button not pressed](assets/setup/gantry_emergency_button_not_pressed.jpg)
+    ![gantry emergency button not pressed](https://res.cloudinary.com/dr76gues0/image/upload/v1788428889/hippocampus-docs/setup/gantry_emergency_button_not_pressed.jpg)
 
-    ![gantry emergency button pressed](assets/setup/gantry_emergency_button_pressed.jpg)
+    ![gantry emergency button pressed](https://res.cloudinary.com/dr76gues0/image/upload/v1788428890/hippocampus-docs/setup/gantry_emergency_button_pressed.jpg)
 
     Not pressed button *(left)* and pressed button *(right)*.
 
@@ -440,7 +440,7 @@ On your own laptop, you can simply edit the default waypoint file. Alternatively
 4. To turn on power again, press this button within the gantry power supply box:
 
 
-    ![gantry power button](assets/setup/gantry_power_button.jpg)
+    ![gantry power button](https://res.cloudinary.com/dr76gues0/image/upload/v1788428895/hippocampus-docs/setup/gantry_power_button.jpg)
 
     <p class="figcaption">Power button for gantry system.</p>
 

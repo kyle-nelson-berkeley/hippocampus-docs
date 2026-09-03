@@ -13,8 +13,12 @@ documentation for the lab's agent tools.
 - **Content is data.** Pages are Markdown under `content/`; structure lives in strict-JSON
   registries under `data/`. Editing a page means editing one file and refreshing.
 - **A check gate, not good intentions.** `python3 tools/check.py` validates the registries,
-  the content files, internal links, and the projects-coverage rule (every org repo
-  accounted for). Run it before every commit.
+  the content files, internal links, image references (against the Cloudinary manifest),
+  and the projects-coverage rule (every org repo accounted for). Run it before every
+  commit; when images, the image manifest, or people-card links changed, also run
+  `python3 tools/check_urls.py` — the network half of the gate, probing exactly those URLs.
+- **Images from a CDN.** Images are served from Cloudinary; the mapping (and the upload
+  sources kept under `assets/`) lives in `data/cloudinary-manifest.json`.
 - **Preview** with `./tools/serve.sh` and open <http://localhost:8130/>.
 - **Search** is a precomputed, static index shipped with the site — no server, no API keys.
   Code symbols come from AST extraction over the org's repositories; CAD parts from the

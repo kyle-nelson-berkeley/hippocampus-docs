@@ -4,7 +4,7 @@
 MoCap markers are used to track the position and orientation of objects in the tank. They are attached to a rigid-body. Commercial Qualisys markers are relatively expensive and not very durable, despite being specified as waterproof. Therefore, custom markers as those in [Design](#/setup/lab-marker/design) are designed. The markers are 3D printed and laminated with reflective tape.
 
 
-![IMG 2506](assets/setup/IMG_2506.jpeg)
+![IMG 2506](https://res.cloudinary.com/dr76gues0/image/upload/v1788428871/hippocampus-docs/setup/IMG_2506.jpg)
 
 <p class="figcaption">Example of custom MoCap marker with reflective tape.</p>
 

@@ -4,7 +4,7 @@
 ## Basic Function
 
 
-![buttons](assets/setup/buttons.jpg)
+![buttons](https://res.cloudinary.com/dr76gues0/image/upload/v1788428884/hippocampus-docs/setup/buttons.jpg)
 
 <p class="figcaption">Buttons (left) for arming (green) and disarming (red) and indicator lights on the right.</p>
 

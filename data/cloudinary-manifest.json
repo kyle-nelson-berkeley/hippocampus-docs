@@ -1,0 +1,293 @@
+{
+  "cloud": "dr76gues0",
+  "assets": [
+    {
+      "source": "assets/setup/IMG_2502.jpeg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/IMG_2502",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428864/hippocampus-docs/setup/IMG_2502.jpg",
+      "bytes": 441803,
+      "sha256": "c50a75bef4a6815e03c5d878283341140069fc9604baba43872c904bcba2111c"
+    },
+    {
+      "source": "assets/setup/IMG_2503.jpeg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/IMG_2503",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428866/hippocampus-docs/setup/IMG_2503.jpg",
+      "bytes": 360739,
+      "sha256": "ae9499d99b7bdc32af384848187ce70dc3c48c82a95ed08dd0e0e8e16d1a0805"
+    },
+    {
+      "source": "assets/setup/IMG_2504.jpeg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/IMG_2504",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428867/hippocampus-docs/setup/IMG_2504.jpg",
+      "bytes": 203180,
+      "sha256": "faa71464ccfad697eb0fb8abeeb34c1020329f926ea2fa4aea7300fed35f99ee"
+    },
+    {
+      "source": "assets/setup/IMG_2505.jpeg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/IMG_2505",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428869/hippocampus-docs/setup/IMG_2505.jpg",
+      "bytes": 708550,
+      "sha256": "c2d4d76e3864ac8ee56037ee21fd1d6c301e96874ff7f59c30103d7d31812203"
+    },
+    {
+      "source": "assets/setup/IMG_2506.jpeg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/IMG_2506",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428871/hippocampus-docs/setup/IMG_2506.jpg",
+      "bytes": 510215,
+      "sha256": "cfce4c71603efa6a3f47e3ce4d47cb462a6be1ea9075db1f3480906ed21db4fb"
+    },
+    {
+      "source": "assets/setup/IMG_2510.jpeg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/IMG_2510",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428873/hippocampus-docs/setup/IMG_2510.jpg",
+      "bytes": 684053,
+      "sha256": "73048ac84b82a39ab12d000a6633032bbf6846678c16e42b5c1f4059197b0d19"
+    },
+    {
+      "source": "assets/setup/IMG_2513.jpeg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/IMG_2513",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428874/hippocampus-docs/setup/IMG_2513.jpg",
+      "bytes": 345020,
+      "sha256": "d2be3a00bc2ed6b9fa79f911f50aff73d3e8ddd26c4cbb46ffe1056143faee0f"
+    },
+    {
+      "source": "assets/setup/IMG_2517.jpeg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/IMG_2517",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428876/hippocampus-docs/setup/IMG_2517.jpg",
+      "bytes": 291763,
+      "sha256": "7c4a46f92ae1c3369dfe0f559017ece40d0e5a07d9d1ad19ba4bbfec11f14232"
+    },
+    {
+      "source": "assets/setup/IMG_2518.jpeg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/IMG_2518",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428877/hippocampus-docs/setup/IMG_2518.jpg",
+      "bytes": 423622,
+      "sha256": "44a15b2c08dcb5bb7c58532fbada61d87dea9f7fbb224565bbd1de91912513bb"
+    },
+    {
+      "source": "assets/setup/IMG_2519.jpeg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/IMG_2519",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428878/hippocampus-docs/setup/IMG_2519.jpg",
+      "bytes": 134853,
+      "sha256": "14effedb1653c81991737490d6799176235d290e1f58727c2ec5cc344f5f4c64"
+    },
+    {
+      "source": "assets/setup/IMG_2521.jpeg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/IMG_2521",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428880/hippocampus-docs/setup/IMG_2521.jpg",
+      "bytes": 247083,
+      "sha256": "5a00ec44e63c2f0d107d9b120dadefba3aa08df4740405d5145bdcf9f23913ed"
+    },
+    {
+      "source": "assets/setup/IMG_2522.jpeg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/IMG_2522",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428881/hippocampus-docs/setup/IMG_2522.jpg",
+      "bytes": 364618,
+      "sha256": "1965f71936973026ee395bb9338c9c35ee48e3527d15dc876cff226bb1d26595"
+    },
+    {
+      "source": "assets/setup/IMG_2524.jpeg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/IMG_2524",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428883/hippocampus-docs/setup/IMG_2524.jpg",
+      "bytes": 469259,
+      "sha256": "8a3bf5ca96e0640fde3e201299b6bfb9d01633fadd95e85e0444273ba847abbf"
+    },
+    {
+      "source": "assets/setup/buttons.jpg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/buttons",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428884/hippocampus-docs/setup/buttons.jpg",
+      "bytes": 141212,
+      "sha256": "17bf8bdd7492b5bc5ee9e187c202af5b55472effe9cf608adf494980599f7863"
+    },
+    {
+      "source": "assets/setup/calibration_orientation.png",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/calibration_orientation",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428886/hippocampus-docs/setup/calibration_orientation.png",
+      "bytes": 249153,
+      "sha256": "b7f849dbf49d4befcd458b541e969dd4501d9d8a32d9c4ea66bb06c539b0e47e"
+    },
+    {
+      "source": "assets/setup/calibration_translation.png",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/calibration_translation",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428887/hippocampus-docs/setup/calibration_translation.png",
+      "bytes": 250956,
+      "sha256": "e52959c6dd52ef1fdbc794c07c747f5bb64868b0b834bc9132dd7a6066f83011"
+    },
+    {
+      "source": "assets/setup/gantry_emergency_button_not_pressed.jpg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/gantry_emergency_button_not_pressed",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428889/hippocampus-docs/setup/gantry_emergency_button_not_pressed.jpg",
+      "bytes": 548138,
+      "sha256": "087fe2572c3f60e32d1efc9c0ebd52cb686d0c8465a5e30a1a0c372dfcf2ffd3"
+    },
+    {
+      "source": "assets/setup/gantry_emergency_button_pressed.jpg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/gantry_emergency_button_pressed",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428890/hippocampus-docs/setup/gantry_emergency_button_pressed.jpg",
+      "bytes": 469746,
+      "sha256": "3a0c381731d867a22e681031f09d438b749f389f8594543b4d6f7954d02b5287"
+    },
+    {
+      "source": "assets/setup/gantry_gui_screenshot.png",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/gantry_gui_screenshot",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428892/hippocampus-docs/setup/gantry_gui_screenshot.png",
+      "bytes": 66179,
+      "sha256": "12925910297ea816ff3668d88df0c36c881692bcfad72d9f9fea5958ddd1035d"
+    },
+    {
+      "source": "assets/setup/gantry_mode_selection.png",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/gantry_mode_selection",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428893/hippocampus-docs/setup/gantry_mode_selection.png",
+      "bytes": 66059,
+      "sha256": "288cf53906f5152010882b1f3a59cc890dc764f26ab5285c830179d467d69409"
+    },
+    {
+      "source": "assets/setup/gantry_power_button.jpg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/gantry_power_button",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428895/hippocampus-docs/setup/gantry_power_button.jpg",
+      "bytes": 841340,
+      "sha256": "4e319694f3d7fcbab47a2294a5238bcfd0d24239064c2f23800395482a54f506"
+    },
+    {
+      "source": "assets/setup/gantry_reference_frame_annotation.jpg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/gantry_reference_frame_annotation",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428897/hippocampus-docs/setup/gantry_reference_frame_annotation.jpg",
+      "bytes": 2435117,
+      "sha256": "a5986b05261c42c45cef473ea1fdf78295c5e471ce4db33642de039f3f2728dd"
+    },
+    {
+      "source": "assets/setup/hippo_inf_path.gif",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/hippo_inf_path",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428847/hippocampus-docs/setup/hippo_inf_path.gif",
+      "bytes": 2265069,
+      "sha256": "abb5d3fae463ed7b08313ab1fe525cc8b704fd502691e7c8ef8b6ef6dda955dd"
+    },
+    {
+      "source": "assets/setup/hippo_inf_path_in_simulation.gif",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/hippo_inf_path_in_simulation",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428900/hippocampus-docs/setup/hippo_inf_path_in_simulation.gif",
+      "bytes": 726200,
+      "sha256": "a9eb0b9460a5e69ddda439709a3fda22c8fe0ff74142fd743ff023823e819269"
+    },
+    {
+      "source": "assets/setup/hippocampus_markers.JPG",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/hippocampus_markers",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428902/hippocampus-docs/setup/hippocampus_markers.jpg",
+      "bytes": 545309,
+      "sha256": "8b7b1a2f22e1151caa93998f65004090ef024871901a6df5d45ed651af202709"
+    },
+    {
+      "source": "assets/setup/l_frame_in_tank.jpg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/l_frame_in_tank",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428905/hippocampus-docs/setup/l_frame_in_tank.jpg",
+      "bytes": 2652530,
+      "sha256": "7ce1cde4970050c83de0933089faf0b055bdce3e3e66b26e98b7a3b9af57d1d5"
+    },
+    {
+      "source": "assets/setup/pi_pinout_bluerov.svg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/pi_pinout_bluerov",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428906/hippocampus-docs/setup/pi_pinout_bluerov.svg",
+      "bytes": 99941,
+      "sha256": "0ff611b29d2feb6e7ec86b8528febd160ed8d8626a583ae9e9e899c6a1a66cda"
+    },
+    {
+      "source": "assets/setup/pi_pinout_buttons.svg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/pi_pinout_buttons",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428909/hippocampus-docs/setup/pi_pinout_buttons.svg",
+      "bytes": 103605,
+      "sha256": "b48fa83f16ed1e8f9897fe945f5106a9a29eb0641e823043c91a680a27dc206e"
+    },
+    {
+      "source": "assets/setup/pi_pinout_gantry.svg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/pi_pinout_gantry",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428911/hippocampus-docs/setup/pi_pinout_gantry.svg",
+      "bytes": 93150,
+      "sha256": "0e230f45fdb5cd6851d75d2885807051064f8a9174f5a1eaea38525799d06f1b"
+    },
+    {
+      "source": "assets/setup/pi_pinout_uuv.svg",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/pi_pinout_uuv",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428836/hippocampus-docs/setup/pi_pinout_uuv.svg",
+      "bytes": 92790,
+      "sha256": "b349f730646b5dae78a3dada031839988a927a6c17841aa47f67ec8e80473d55"
+    },
+    {
+      "source": "assets/setup/qgc_manually_add_tcp_connection.png",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/qgc_manually_add_tcp_connection",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428914/hippocampus-docs/setup/qgc_manually_add_tcp_connection.png",
+      "bytes": 46981,
+      "sha256": "4db18680c91790689b68a5bcaa82eb41de4e2567b257823c40e91bb6c78ca795"
+    },
+    {
+      "source": "assets/setup/qgc_sensors_setup.png",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/qgc_sensors_setup",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428915/hippocampus-docs/setup/qgc_sensors_setup.png",
+      "bytes": 72293,
+      "sha256": "39e4a43b93e0eb8cafe863cecef6dc7b5b05ddda2815b392982ed0ee637eca8c"
+    },
+    {
+      "source": "assets/setup/qgc_vehicle_setup.png",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/qgc_vehicle_setup",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428916/hippocampus-docs/setup/qgc_vehicle_setup.png",
+      "bytes": 155030,
+      "sha256": "333903d5f4b507085b5da78761231a4af1e641055c5119b18ac97971877e342f"
+    },
+    {
+      "source": "assets/setup/qgc_where_to_find_settings.png",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/qgc_where_to_find_settings",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428918/hippocampus-docs/setup/qgc_where_to_find_settings.png",
+      "bytes": 624916,
+      "sha256": "719da92d9f56644bf143e9f4d2a618d40505b4be5b210f43edf4034859b0d430"
+    },
+    {
+      "source": "assets/setup/rotate_6dof_body.png",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/rotate_6dof_body",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428920/hippocampus-docs/setup/rotate_6dof_body.png",
+      "bytes": 509145,
+      "sha256": "6ba0daa17952b30b8fe26cef6ccdf1c48145c3f38713f3be45a743958299e112"
+    },
+    {
+      "source": "assets/setup/thrusters.png",
+      "folder": "hippocampus-docs/setup",
+      "public_id": "hippocampus-docs/setup/thrusters",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788428923/hippocampus-docs/setup/thrusters.png",
+      "bytes": 4536328,
+      "sha256": "c002720b197f716ece6e6ddb3cd68bd0b622892052058e11ceaabd0b30265f9b"
+    }
+  ]
+}

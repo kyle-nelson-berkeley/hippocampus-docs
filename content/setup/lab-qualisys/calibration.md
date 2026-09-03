@@ -15,7 +15,7 @@ It is a good idea to align the L-frame with one of the tags. That way, you can l
 
 
 
-![l frame in tank](assets/setup/l_frame_in_tank.jpg)
+![l frame in tank](https://res.cloudinary.com/dr76gues0/image/upload/v1788428905/hippocampus-docs/setup/l_frame_in_tank.jpg)
 
 <p class="figcaption">L-Frame position in tank.</p>
 
@@ -37,7 +37,7 @@ In the settings, under `Input Devices`  - `Camera System` - `Calibration`, set t
 - **Long arm axis:** positive x-axis
 
 
-![calibration orientation](assets/setup/calibration_orientation.png)
+![calibration orientation](https://res.cloudinary.com/dr76gues0/image/upload/v1788428886/hippocampus-docs/setup/calibration_orientation.png)
 
 ### Setting the translation
 
@@ -45,7 +45,7 @@ In the settings, under `Input Devices`  - `Camera System` - `Calibration`, set t
 *After* you have successfully calibrated, you can translate the origin of the original coordinate system to be aligned with our definition in ROS.
 
 
-![calibration translation](assets/setup/calibration_translation.png)
+![calibration translation](https://res.cloudinary.com/dr76gues0/image/upload/v1788428887/hippocampus-docs/setup/calibration_translation.png)
 
 ## Calibration Results
 

@@ -13,9 +13,18 @@ Validates, failing loudly with actionable messages:
   5. tools: every tool file exists;
   6. content: no orphan markdown; every internal '#/...' link in content resolves
      to a real route; every relative asset reference exists; no orphan assets;
+     images live on Cloudinary — content may not point at a local assets/*.png|
+     jpg|jpeg|gif|svg, every res.cloudinary.com reference must resolve to an
+     entry of data/cloudinary-manifest.json (matched on public_id, so delivery
+     transformations are fine), and every manifest entry must be referenced;
+  6b. hygiene: no credentials, key material or personal emails in content/**.md,
+     data/*.json or .mcp.json;
   7. shell: index.html references exist; vendored marked.min.js matches its
      pinned sha256;
   8. probes: data/search-probes.json carries exactly 10 well-formed probes.
+
+This gate is OFFLINE by design (it never touches the network). URL liveness is
+the job of its online twin, tools/check_urls.py.
 
 Never weaken a check to make it pass — fix the content it is complaining about.
 """
@@ -27,6 +36,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MARKED_SHA256 = "15fabce5b65898b32b03f5ed25e9f891a729ad4c0d6d877110a7744aa847a894"
+# Images are served from Cloudinary; these extensions may not be referenced
+# from content as local files (the originals stay in assets/ as upload sources).
+# Same set as the upload skill's imageExt and as IMAGE_SUFFIXES in
+# tools/rst_convert.py — widen all three together or a format slips the policy.
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp",
+              ".tiff", ".tif", ".avif", ".heic", ".heif")
+CLOUDINARY_RE = re.compile(r"https?://res\.cloudinary\.com/[^\s)\"'<>\]]+")
+# a delivery-URL segment that sits BEFORE the public_id: a version ('v1788…')
+# or a transformation group ('f_auto,q_auto', 'w_800', 'c_fill,g_face').
+DELIVERY_PREFIX_RE = re.compile(r"v\d+|[a-z]{1,3}_[^/,]+(?:,[a-z]{1,3}_[^/,]+)*")
+SECRET_KEY_RE = re.compile(
+    r"(password|passwd|pwd|api_key|apikey|api_secret|secret|token)", re.IGNORECASE)
+EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+EMAIL_OK = re.compile(r"@(github\.com|[\w.-]*\.local|example\.[a-z]+)$")
 errors = []
 
 
@@ -45,6 +68,45 @@ def load(name):
     return None
 
 
+def resolve_public_id(url, cloud, known):
+    """Map a Cloudinary delivery URL onto a known public_id, or None.
+
+    Accepts https://res.cloudinary.com/<cloud>/image/upload/[<transforms>/]
+    [v<digits>/]<public_id>[.<ext>] so that adding a delivery transformation
+    (f_auto,q_auto / w_800 / …) never breaks the gate. A foreign cloud or an
+    unknown public_id still returns None — i.e. still fails.
+    """
+    prefix = f"https://res.cloudinary.com/{cloud}/"
+    if not url.startswith(prefix):
+        return None
+    m = re.match(r"(?:image|video|raw)/(?:upload|fetch|private|authenticated)/(.+)$",
+                 url[len(prefix):])
+    if not m:
+        return None
+    seg = m.group(1).split("/")
+    for start in range(len(seg)):
+        # only version/transformation segments may precede the public_id
+        if start and not DELIVERY_PREFIX_RE.fullmatch(seg[start - 1]):
+            break
+        cand = "/".join(seg[start:])
+        for c in (cand, re.sub(r"\.[A-Za-z0-9]{1,5}$", "", cand)):
+            if c in known:
+                return c
+    return None
+
+
+def walk_json(node, path=""):
+    """Yield (dotted-key-path, key-name, string value) for every string in a doc."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield from walk_json(v, f"{path}.{k}" if path else str(k))
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from walk_json(v, f"{path}[{i}]")
+    elif isinstance(node, str):
+        yield path, path.rsplit(".", 1)[-1].split("[")[0], node
+
+
 def main():
     site = load("data/site.json")
     setup = load("data/setup.json")
@@ -54,6 +116,7 @@ def main():
     old_pages = load("data/old-docs-pages.json")
     org = load("data/org-repos.json")
     probes = load("data/search-probes.json")
+    cloudinary = load("data/cloudinary-manifest.json")
     if errors:
         report()
 
@@ -143,6 +206,11 @@ def main():
     used_assets = set()
     link_re = re.compile(r"\]\(([^)\s]+)\)")
     html_ref_re = re.compile(r'(?:src|href)="([^"]+)"')
+    # embedded images only — a plain hyperlink that happens to point at a .svg
+    # elsewhere on the web is a link, not an image this site serves.
+    img_md_re = re.compile(r"!\[[^\]]*\]\(([^)\s]+)\)")
+    img_html_re = re.compile(r"""<img[^>]*?\ssrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>"']+))""",
+                             re.IGNORECASE)
 
     def check_route(route, where):
         route = route.split("@")[0]
@@ -161,10 +229,19 @@ def main():
         elif seg[0] not in ("about", "search"):
             err(f"{where}: unknown route {route}")
 
+    def is_image(href):
+        return href.split("?")[0].split("#")[0].lower().endswith(IMAGE_EXTS)
+
+    def is_local_asset(href):
+        return href.split("?")[0].lstrip("./").startswith("assets/")
+
     for md in md_files:
         rel = md.relative_to(ROOT)
         text = md.read_text(encoding="utf-8")
         targets = link_re.findall(text) + html_ref_re.findall(text)
+        # every image the page actually embeds, however it is quoted
+        embedded = set(img_md_re.findall(text))
+        embedded |= {a or b or c for a, b, c in img_html_re.findall(text)}
         for href in targets:
             if href.startswith("#/"):
                 check_route(href, str(rel))
@@ -177,15 +254,92 @@ def main():
                     err(f"{rel}: missing local file {href}")
                 else:
                     used_assets.add((ROOT / href).resolve())
+        # images are served from Cloudinary — a local one means a migration was
+        # missed (non-image downloads stay local)
+        for ref in sorted(set(targets) | embedded):
+            if is_local_asset(ref) and is_image(ref):
+                err(f"{rel}: local image reference '{ref}' — images must be uploaded "
+                    f"to Cloudinary and referenced via data/cloudinary-manifest.json")
+        # …and an embedded image may not hang off somebody else's host either
+        for src in sorted(embedded):
+            if src.startswith(("http://", "https://")) \
+                    and not src.startswith("https://res.cloudinary.com/"):
+                err(f"{rel}: image embedded from a foreign host '{src}' — upload it to "
+                    f"Cloudinary and reference it via data/cloudinary-manifest.json")
+
+    # ---- 6a. cloudinary manifest <-> references ----
+    index_text = (ROOT / "index.html").read_text(encoding="utf-8")
+    people_path = ROOT / "data" / "people.json"          # may not exist yet
+    scanned = [(str(m.relative_to(ROOT)), m.read_text(encoding="utf-8")) for m in md_files]
+    scanned.append(("index.html", index_text))
+    if people_path.exists():
+        scanned.append(("data/people.json", people_path.read_text(encoding="utf-8")))
+
+    cloud = cloudinary.get("cloud") or ""
+    if not cloud:
+        err("data/cloudinary-manifest.json: no 'cloud' name")
+    manifest_sources = set()
+    public_ids, urls, sources = set(), set(), set()
+    for e in cloudinary.get("assets", []):
+        src, pid, url = e.get("source"), e.get("public_id"), e.get("url")
+        if not (src and pid and url):
+            err(f"data/cloudinary-manifest.json: entry missing source/public_id/url: {e}")
+            continue
+        for value, seen, what in ((src, sources, "source"), (url, urls, "url"),
+                                  (pid, public_ids, "public_id")):
+            if value in seen:
+                err(f"data/cloudinary-manifest.json: duplicate {what} '{value}'")
+            seen.add(value)
+        # The digest is what makes drift detectable, so it is mandatory: an entry
+        # without one would otherwise count as a valid source and quietly opt out
+        # of the guarantee below.
+        recorded = e.get("sha256")
+        digest_ok = isinstance(recorded, str) and re.fullmatch(r"[0-9a-f]{64}", recorded)
+        if not digest_ok:
+            err(f"data/cloudinary-manifest.json: manifest entry {pid}: missing/invalid "
+                f"sha256 — required for source drift detection")
+        p = ROOT / src
+        if not p.exists():
+            err(f"data/cloudinary-manifest.json: source file missing on disk: {src} "
+                f"(the local original is the upload source — do not delete it)")
+        else:
+            manifest_sources.add(p.resolve())
+            # Drift guard: edit the local original and the site would keep
+            # serving the OLD remote image. Only sha256 is compared — 'bytes'
+            # is what Cloudinary stored after its own processing and legitimately
+            # differs from the source (it does for the two GIFs).
+            digest = hashlib.sha256(p.read_bytes()).hexdigest()
+            if digest_ok and digest != recorded:
+                err(f"data/cloudinary-manifest.json: {src} changed since upload "
+                    f"({digest[:12]}… vs {recorded[:12]}…) — re-upload it and "
+                    f"refresh the manifest, or the site serves the old image")
+        if cloud and not url.startswith(f"https://res.cloudinary.com/{cloud}/"):
+            err(f"data/cloudinary-manifest.json: url for {pid} is not on cloud "
+                f"'{cloud}': {url}")
+
+    referenced_ids = set()
+    for where, text in scanned:
+        for url in CLOUDINARY_RE.findall(text):
+            url = url.rstrip(".,;:")
+            pid = resolve_public_id(url, cloud, public_ids)
+            if pid is None:
+                err(f"{where}: Cloudinary reference with no manifest entry: {url} "
+                    f"(upload it and re-run the manifest step)")
+            else:
+                referenced_ids.add(pid)
+    for pid in sorted(public_ids - referenced_ids):
+        err(f"orphan cloudinary asset (uploaded but nothing references it): {pid}")
 
     asset_dir = ROOT / "assets"
     always_used = {(asset_dir / "hippo.svg").resolve()}
     for a in sorted(asset_dir.rglob("*")):
-        if a.is_file() and a.resolve() not in used_assets | always_used:
+        # a manifest source counts as used: kept originals are upload sources
+        # and the local fallback, not orphans.
+        if a.is_file() and a.resolve() not in used_assets | always_used | manifest_sources:
             err(f"orphan asset (nothing references it): {a.relative_to(ROOT)}")
 
     # ---- 6b. content hygiene: no credentials or personal data, ever ----
-    email_ok = re.compile(r"@(github\.com|[\w.-]*\.local|example\.[a-z]+)$")
+    email_ok = EMAIL_OK
     for md in md_files:
         rel = md.relative_to(ROOT)
         for i, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1):
@@ -200,8 +354,31 @@ def main():
                 if not email_ok.search(em) and em != "git@github.com":
                     err(f"{rel}:{i}: personal email address '{em}' — do not republish personal data")
 
+    # the same hygiene rules over the JSON side of the site: registries and the
+    # MCP wiring. A key NAMED like a credential must not carry a literal value
+    # ('sha256' is a checksum, not a secret, and never matches).
+    json_files = sorted((ROOT / "data").glob("*.json"))
+    if (ROOT / ".mcp.json").exists():
+        json_files.append(ROOT / ".mcp.json")
+    for jf in json_files:
+        rel = jf.relative_to(ROOT)
+        try:
+            doc = json.loads(jf.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            err(f"{rel}:{e.lineno}:{e.colno}: {e.msg} (strict JSON)")
+            continue
+        for keypath, key, value in walk_json(doc):
+            if SECRET_KEY_RE.search(key) and value.strip() \
+                    and not value.startswith(("$", "<")):
+                err(f"{rel}: literal credential value at '{keypath}' — use a "
+                    f"<placeholder> or a ${{ENV_VAR}} reference")
+            for em in EMAIL_RE.findall(value):
+                if not email_ok.search(em) and em != "git@github.com":
+                    err(f"{rel}: personal email address '{em}' at '{keypath}' — "
+                        f"do not republish personal data")
+
     # ---- 7. shell ----
-    index = (ROOT / "index.html").read_text(encoding="utf-8")
+    index = index_text
     for ref in html_ref_re.findall(index):
         if ref.startswith(("http", "#", "data:")):
             continue
@@ -234,6 +411,8 @@ def report(site=None):
             print(f"  ✗ {e}")
         sys.exit(1)
     print("check.py: all green")
+    print("reminder: URL liveness is checked by tools/check_urls.py — run it when "
+          "images, links, or the manifest changed")
     sys.exit(0)
 
 

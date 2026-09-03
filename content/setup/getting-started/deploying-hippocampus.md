@@ -127,7 +127,7 @@ Look! It's running just perfectly fine without any trial and error.
 
 
 
-![hippo inf path](assets/setup/hippo_inf_path.gif)
+![hippo inf path](https://res.cloudinary.com/dr76gues0/image/upload/v1788428847/hippocampus-docs/setup/hippo_inf_path.gif)
 
 
 <p class="provenance">Migrated from the previous docs site: <a href="https://hippocampusrobotics.github.io/docs/contents/getting_started/deploying_hippocampus.html">contents/getting_started/deploying_hippocampus</a>.</p>
