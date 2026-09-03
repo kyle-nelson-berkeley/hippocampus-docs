@@ -376,6 +376,14 @@
       "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788431437/hippocampus-docs/people/vincent-lenz.jpg",
       "bytes": 38719,
       "sha256": "a888367bd595a5f2ba75e0ceb924ac84f54f3c6ee9dd99cf3a7995e0d3a220c8"
+    },
+    {
+      "source": "assets/brand/hippocampus-mark.png",
+      "folder": "hippocampus-docs/brand",
+      "public_id": "hippocampus-docs/brand/hippocampus-mark",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788447786/hippocampus-docs/brand/hippocampus-mark.png",
+      "bytes": 1424553,
+      "sha256": "f0d85445f2cc09af57dfde0cb17cf030f7e3274efbdadef5fc1bbd6d6a41ae50"
     }
   ]
 }
