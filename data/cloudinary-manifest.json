@@ -400,6 +400,14 @@
       "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788462821/hippocampus-docs/brand/tuhh-black.png",
       "bytes": 2605,
       "sha256": "f503ede6daa6643a8c6cab1d30de8d9b409e3861097e19e056af46612d7c744b"
+    },
+    {
+      "source": "assets/brand/favicon.png",
+      "folder": "hippocampus-docs/brand",
+      "public_id": "hippocampus-docs/brand/favicon",
+      "url": "https://res.cloudinary.com/dr76gues0/image/upload/v1788465371/hippocampus-docs/brand/favicon.png",
+      "bytes": 132179,
+      "sha256": "c8cd6866f6dcc72c28bd75c0c19701038ba03f766f9139e1669a2379092f34d3"
     }
   ]
 }
