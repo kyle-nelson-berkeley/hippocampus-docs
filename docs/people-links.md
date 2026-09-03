@@ -23,7 +23,7 @@ candidates. `tools/check_urls.py` probes every non-null link for liveness.*
 |---|---|---|
 | Thies Lennart Alff | Personal TUHH page, verified 200 | https://www.tuhh.de/mum/team/wimi/thies-lennart-alff |
 | Daniel-André Dücker | Personal TUHH page still exists, verified 200 (per the decision: TUHH page, not a TUM page) | https://www.tuhh.de/mum/team/wimi/daniel-duecker |
-| Niklas Trekel | No TUHH page. Non-TUHH personal page, ≥90%: his Uni Bonn (StachnissLab) page states both his degrees are from Hamburg University of Technology | https://www.ipb.uni-bonn.de/people/niklas-trekel/index.html |
+| Niklas Trekel | LINK REMOVED 2026-09-03 — Kyle could not confirm the identity ("not sure"), and nobody on this side knows him, so the cautious default applies. Candidate for Nathalie to confirm: his Uni Bonn (StachnissLab) page, which states both his degrees are from Hamburg University of Technology — https://www.ipb.uni-bonn.de/people/niklas-trekel/index.html | none |
 | Richard Wittmüß | No TUHH page; only a LinkedIn profile found (shows TU Hamburg) — not linked by policy. Candidate: https://de.linkedin.com/in/richard-wittmuess | none |
 | Eugen Solowjow | Personal TUHH page still exists, verified 200 | https://www.tuhh.de/mum/team/wimi/eugen-solowjow |
 | Axel Hackbarth | Personal TUHH page still exists, verified 200 | https://www.tuhh.de/mum/team/wimi/axel-hackbarth |
@@ -31,19 +31,22 @@ candidates. `tools/check_urls.py` probes every non-null link for liveness.*
 | René Hochdahl | Personal TUHH page (back at MUM as research staff), verified 200 | https://www.tuhh.de/mum/team/wimi/rene-hochdahl |
 | Roman Sartorti | Personal TUHH page (now at the SKF institute), verified 200 | https://www.tuhh.de/skf/institute/staff/roman-sartorti |
 | Malte Flehmke | Personal TUHH page (now at the IPMT institute), verified 200 | https://www.tuhh.de/ipmt/das-ipmt/team/mf |
-| Benedikt Mersch | No TUHH page. Non-TUHH personal page, ≥90%: his Uni Bonn (StachnissLab) page states his master's degree is from Hamburg University of Technology | https://www.ipb.uni-bonn.de/people/benedikt-mersch/index.html |
-| Matti Vahs | No TUHH page. Non-TUHH personal page, ≥90%: his KTH profile states both his degrees are from Hamburg University of Technology | https://www.kth.se/profile/vahs |
+| Benedikt Mersch | No TUHH page. Non-TUHH personal page, ≥90%: his Uni Bonn (StachnissLab) page states his master's degree is from Hamburg University of Technology. CONFIRMED by Kyle 2026-09-03. | https://www.ipb.uni-bonn.de/people/benedikt-mersch/index.html |
+| Matti Vahs | No TUHH page. Non-TUHH personal page, ≥90%: his KTH profile states both his degrees are from Hamburg University of Technology. CONFIRMED by Kyle 2026-09-03. | https://www.kth.se/profile/vahs |
 | Lukas Büsch | Personal TUHH page (now at the IFPT institute), verified 200 | https://www.tuhh.de/ifpt/institut/mitarbeiter/wissenschaftliche-mitarbeiter/lukas-buesch-msc |
 | Philip Carstensen | Personal TUHH page (external doctoral candidate at MUM), verified 200 | https://www.tuhh.de/mum/team/wimi/philip-carstensen |
 | Kevin Eusemann | No TUHH page; no personal page found (only unclaimed ResearchGate/SemanticScholar entries). No link by rule | none |
 | Sean Maroofi | No TUHH page; only a LinkedIn profile found (shows TU Hamburg) — not linked by policy. Candidate: https://se.linkedin.com/in/sean-maroofi | none |
 | Viktor Rausch | No TUHH page; only ResearchGate/Scholar profiles found — not linked by policy | none |
-| René Geist | No TUHH page. Non-TUHH personal page, ≥90%: his homepage states Theoretical Mechanical Engineering at TU Hamburg, and his HippoCampus-era paper carries the MUM institute affiliation | https://andregeist.github.io/ |
+| René Geist | LINK REMOVED 2026-09-03 — Kyle could not confirm it. He stays on the roster because he is listed on the lab's current people page (verified same day; placeholder photo, no title there). Candidate for Nathalie to confirm: https://andregeist.github.io/ (states Theoretical Mechanical Engineering at TU Hamburg; a HippoCampus-era paper carries the MUM institute affiliation) | none |
 | Tobias Johannink | No TUHH page; only LinkedIn/ResearchGate found (both show TUHH history) — not linked by policy. Candidate: https://de.linkedin.com/in/tobias-johannink-a2b060163 | none |
 
 ## Non-TUHH links for Kyle's review
 
-- Niklas Trekel → https://www.ipb.uni-bonn.de/people/niklas-trekel/index.html
-- Benedikt Mersch → https://www.ipb.uni-bonn.de/people/benedikt-mersch/index.html
-- Matti Vahs → https://www.kth.se/profile/vahs
-- René Geist → https://andregeist.github.io/
+Resolved 2026-09-03 — Kyle reviewed person by person (he knows few of these people, so
+anything he could not confirm falls back to no link; candidates stay listed above for Nathalie):
+
+- Niklas Trekel → **link removed** (not sure)
+- Benedikt Mersch → **kept** (confirmed)
+- Matti Vahs → **kept** (confirmed)
+- René Geist → **link removed** (unconfirmed); card kept because he is on the lab's current people page
