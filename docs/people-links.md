@@ -12,7 +12,7 @@ candidates. `tools/check_urls.py` probes every non-null link for liveness.*
 
 | Person | Resolution | Link |
 |---|---|---|
-| Kyle Nelson | FLAGGED FOR KYLE — portfolio found via `vercel project ls` / `vercel alias ls` (production alias `portfolio-kyle-nelson-berkeleys-projects.vercel.app`), but it 302-redirects to Vercel SSO login: deployment protection is enabled, so the site is not publicly viewable. Card ships link-less per Kyle's pre-authorized fallback. To fix: disable Vercel deployment protection on the `portfolio` project (or give the public URL), then set `link` in `data/people.json`. | none |
+| Kyle Nelson | RESOLVED 2026-09-03 (was flagged: the auto-generated project URL `portfolio-kyle-nelson-berkeleys-projects.vercel.app` 302s to Vercel SSO). Kyle supplied the public production alias, which serves the latest production deployment without disabling deployment protection — verified 200 anonymously. | https://kyle-nelson-berkeley.vercel.app |
 | Nathalie Bauschmann | Personal TUHH page, verified 200 | https://www.tuhh.de/mum/team/wimi/nathalie-bauschmann |
 | Vincent Lenz | Personal TUHH page, verified 200 | https://www.tuhh.de/mum/team/wimi/vincent-lenz |
 | Finn Busch | No TUHH page (404). Identity of the KTH RPL PhD student is ≥90% certain (LinkedIn: KTH + Hamburg University of Technology), but no stable page of his shows the TUHH affiliation: finnbusch.com is a bare project redirector, and kth.se/profile/flbusch has no bio. No link by rule; candidates for Kyle: https://www.finnbusch.com/ · https://www.kth.se/profile/flbusch/ · https://github.com/finnBsch | none |
