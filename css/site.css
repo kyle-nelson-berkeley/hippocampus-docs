@@ -99,9 +99,11 @@ body {
 [data-theme="light"] .tuhh-mark-light { display: block; }
 
 /* ---------- layout ---------- */
+/* The shell takes 80% of the window (10% gutter each side) and stops growing at
+   110rem; the header and footer stay edge-to-edge. Below 900px it goes full width. */
 .layout {
   display: grid; grid-template-columns: 17rem minmax(0, 1fr);
-  max-width: 82rem; margin: 0 auto; min-height: calc(100vh - var(--header-h) - 3rem);
+  width: 80%; max-width: 110rem; margin: 0 auto; min-height: calc(100vh - var(--header-h) - 3rem);
 }
 .sidebar {
   border-right: 1px solid var(--edge-soft);
@@ -125,7 +127,6 @@ body {
 .sidebar a.active { color: var(--accent); background: var(--accent-soft); }
 .content { padding: 2.2rem 3rem 5rem; min-width: 0; }
 .content:focus { outline: none; }
-.page-body { max-width: 46rem; }
 
 /* ---------- typography ---------- */
 h1, h2, h3, h4 { color: var(--heading); line-height: 1.25; scroll-margin-top: calc(var(--header-h) + 1rem); }
@@ -248,7 +249,7 @@ a.chip:hover { color: var(--accent); border-color: var(--accent); }
 .back-link:hover { color: var(--heading); }
 .detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 15.5rem; gap: 2.5rem; margin-top: 1.5rem; }
 .detail-aside { order: 2; }
-.detail-main { order: 1; min-width: 0; max-width: 46rem; }
+.detail-main { order: 1; min-width: 0; }
 .aside-box { position: sticky; top: calc(var(--header-h) + 1.2rem); display: grid; gap: 1.4rem; }
 .aside-box h3 {
   font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.14em;
@@ -301,7 +302,6 @@ a.person-card:hover {
 .people-grid.compact .person-title { font-size: 0.7rem; }
 
 /* ---------- search ---------- */
-.search-results { max-width: 46rem; }
 .result { padding: 0.8rem 0; border-bottom: 1px solid var(--edge-soft); }
 .result a.title { color: var(--heading); text-decoration: none; font-weight: 600; }
 .result a.title:hover { color: var(--accent); }
@@ -321,7 +321,7 @@ a.person-card:hover {
 .site-footer a { color: var(--body-soft); }
 
 @media (max-width: 900px) {
-  .layout { grid-template-columns: minmax(0, 1fr); }
+  .layout { width: 100%; grid-template-columns: minmax(0, 1fr); }
   .sidebar { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--edge-soft); }
   .content { padding: 1.5rem 1.2rem 4rem; }
   .detail-grid { grid-template-columns: minmax(0, 1fr); }
