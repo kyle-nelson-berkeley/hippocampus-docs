@@ -174,7 +174,7 @@
     setTitle([]);
     const s = DATA.site;
     content.innerHTML = `
-      <div class="page-body" style="max-width:52rem">
+      <div class="page-body">
         <p class="kicker">${esc(s.kicker)}</p>
         <h1>${esc(s.title)}</h1>
         <p class="lead">${esc(s.lead)}</p>
@@ -229,7 +229,7 @@
         ${p.repos.length > 5 ? `<span class="chip">+${p.repos.length - 5} more</span>` : ''}</div>
       </a>`).join('');
     content.innerHTML = `
-      <div class="page-body" style="max-width:64rem">
+      <div class="page-body">
         <p class="kicker">The team's work</p>
         <h1>Projects</h1>
         <p class="lead">${esc(DATA.projects.intro)}</p>
@@ -255,7 +255,7 @@
     const hw = (p.hardware || []).map((h) => `<li>${esc(h)}</li>`).join('');
     const docs = (p.links || []).map((l) => `<li><a href="${esc(l.href)}">${esc(l.label)}</a></li>`).join('');
     content.innerHTML = `
-      <div style="max-width:64rem">
+      <div>
         <a class="back-link" href="#/projects">← All projects</a>
         <h1 style="margin-top:0.8rem">${esc(p.name)}</h1>
         <p class="lead">${esc(p.tagline)} ${statusBadge(p.status)}</p>
@@ -283,7 +283,7 @@
         <div class="chips">${(t.chips || []).map((c) => `<span class="chip">${esc(c)}</span>`).join('')}</div>
       </a>`).join('');
     content.innerHTML = `
-      <div class="page-body" style="max-width:64rem">
+      <div class="page-body">
         <p class="kicker">Agents in the lab</p>
         <h1>Agent tools</h1>
         <p class="lead">${esc(DATA.tools.intro)}</p>
