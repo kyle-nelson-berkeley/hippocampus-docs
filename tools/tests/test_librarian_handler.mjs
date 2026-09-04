@@ -262,10 +262,12 @@ test('a good provider answer is validated, filtered and capped at 8', async () =
   /* This test used to carry the invariant "only candidate ids, never an
      invented one". The walk answers with ids the client never sent — catalog
      ids, and code-level sym:/file: ids — so that invariant is REPLACED here by
-     a STRICTLY STRONGER one: every returned id must RESOLVE against real site
+     a strictly stronger one: every returned id must RESOLVE against real site
      data (a candidate id, a catalog id, or a validated sym:/file: id), and
-     everything that does not resolve is dropped. The hallucinated-id assertion
-     survives inside the stronger form, on three shapes rather than one. */
+     everything that does not resolve is dropped. Strictly stronger because the
+     old rule allowed any candidate id through unchecked and said nothing at all
+     about the rest; this one checks every id against what actually ships. The
+     hallucinated-id assertion survives inside it, on three shapes not one. */
   const known = ASK.candidates.map((c) => c.id);
   const fetchStub = providerStub([{
     open: [],
