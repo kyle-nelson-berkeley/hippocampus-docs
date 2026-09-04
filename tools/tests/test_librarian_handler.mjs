@@ -144,6 +144,33 @@ test('OPTIONS is not secretly special-cased into a 2xx', async () => {
   assert.equal(r.code, 405);
 });
 
+test('an oversized body gets a real 413 on a live socket, not a connection reset', async () => {
+  // A 600 KiB body arrives in 60 chunks. The handler must answer 413 while the
+  // request is still readable: destroying the socket first would leave the client
+  // with a reset and no JSON error. The response must also tell the client to
+  // drop the connection, since the unread remainder cannot be reused.
+  const chunk = Buffer.alloc(10 * 1024, 'x');
+  const req = Readable.from(Array.from({ length: 60 }, () => chunk));
+  req.method = 'POST';
+  req.url = '/api/librarian';
+  req.headers = { 'content-type': 'application/json', host: 'docs.example.org' };
+  // Node auto-destroys a Readable once it has ended; that is bookkeeping, not a
+  // teardown. Only a destroy while the body is still unread counts as the bug.
+  let destroyedMidStream = false;
+  const realDestroy = req.destroy.bind(req);
+  req.destroy = (...a) => { if (!req.readableEnded) destroyedMidStream = true; return realDestroy(...a); };
+  const res = makeRes(true);
+  await handler(req, res, { env: {}, dataDir: DATA, fetch: async () => { throw new Error('no provider call expected'); } });
+  await res.done;
+  assert.equal(res.code, 413);
+  assert.equal(destroyedMidStream, false, 'socket was destroyed while the body was still unread');
+  assert.match(JSON.parse(res.body).error, /over \d+ bytes/);
+  assert.equal(res.headers.connection, 'close');
+  // the drain finished on its own
+  await new Promise((r) => (req.readableEnded ? r() : req.once('end', r)));
+  assert.equal(req.readableEnded, true);
+});
+
 test('a malformed body is a 4xx, not a crash', async () => {
   const r = await call('POST', 'this is not json{', { env: KEYS });
   assert.ok(r.code >= 400 && r.code < 500, `expected 4xx, got ${r.code}`);

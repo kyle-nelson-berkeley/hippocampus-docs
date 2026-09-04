@@ -288,7 +288,7 @@ try {
 }
 if (args.help || !args.base) {
   process.stdout.write(
-    'usage: node tools/bench_librarian.mjs --base <url> [--provider groq|nvidia] [--delay <ms>]\n'
+    'usage: node tools/bench_librarian.mjs --base <url> [--provider gptoss|nemotron] [--delay <ms>]\n'
     + '  --base is required; it is the site root, e.g. http://127.0.0.1:8131\n'
     + '  --delay spaces requests out; it defaults to '
     + `${HOSTED_MIN_INTERVAL_MS}ms against a hosted base and 0 against loopback,\n`
@@ -338,7 +338,7 @@ if (blocked.length) {
   process.stdout.write(
     '\nNo winner. A provider is only declared the winner when BOTH answered all '
     + `${cases.length} queries error-free at temperature 0, so that availability can never `
-    + 'look like quality.\nThe default order in api/librarian.js (groq primary, nvidia '
+    + 'look like quality.\nThe default order in api/librarian.js (gptoss primary, nemotron '
     + 'fallback) stays PROVISIONAL.\n');
 } else {
   const ranked = rows.slice().sort((a, b) =>
@@ -351,7 +351,7 @@ if (blocked.length) {
     : `WINNER: ${win.provider} — ${win.top1}/${cases.length} top-1 vs ${lose.top1}/${cases.length}, `
       + `median ${median(win.latencies)}ms vs ${median(lose.latencies)}ms.\n`);
   process.stdout.write(
-    'Reminder: this decides the PRIMARY/FALLBACK ORDER only. Groq\'s model choice '
+    'Reminder: this decides the PRIMARY/FALLBACK ORDER only. The primary model choice '
     + '(openai/gpt-oss-120b, never a Llama-family model) is a policy constraint and is '
     + 'not a benchmark outcome.\n');
 }

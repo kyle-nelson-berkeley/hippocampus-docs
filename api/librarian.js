@@ -291,21 +291,28 @@ function send(res, code, payload, extraHeaders) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let size = 0;
+    let tooBig = false;
     const chunks = [];
     req.on('data', (chunk) => {
+      if (tooBig) return;                   // draining: keep the socket alive, keep nothing
       const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), 'utf8');
       size += buf.length;
       if (size > MAX_BODY_BYTES) {
+        // Never destroy the request here: tearing down the socket before the
+        // 413 is written turns the intended JSON error into a connection reset.
+        // The listener stays attached so the rest of the body drains, and the
+        // 413 carries `connection: close` so the client does not reuse the socket.
+        tooBig = true;
+        chunks.length = 0;
         const e = new Error(`request body over ${MAX_BODY_BYTES} bytes`);
         e.httpCode = 413;
         reject(e);
-        if (typeof req.destroy === 'function') req.destroy();
         return;
       }
       chunks.push(buf);
     });
     req.on('error', reject);
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('end', () => { if (!tooBig) resolve(Buffer.concat(chunks).toString('utf8')); });
   });
 }
 
@@ -566,7 +573,8 @@ async function handle(req, res, deps) {
   try {
     raw = await readBody(req);
   } catch (e) {
-    send(res, e.httpCode || 400, { error: e.message || 'could not read the request body' });
+    send(res, e.httpCode || 400, { error: e.message || 'could not read the request body' },
+      e.httpCode === 413 ? { connection: 'close' } : undefined);
     return;
   }
 
