@@ -463,10 +463,46 @@ function parseModelJson(content) {
   try {
     doc = JSON.parse(text);
   } catch (e) {
-    return null;
+    // Nemotron nano (measured 2026-09-04) ends its answer one closer short —
+    // `{"results":[{...}]` with finish_reason "stop" — on a third of queries.
+    // Append the closers the text is missing and try once more. Only missing
+    // closers are repaired; anything else that will not parse is still a
+    // provider failure, so the other entry gets its turn.
+    const repaired = closeOpenBrackets(text);
+    if (repaired === null) return null;
+    try {
+      doc = JSON.parse(repaired);
+    } catch (e2) {
+      return null;
+    }
   }
   if (!doc || typeof doc !== 'object' || !Array.isArray(doc.results)) return null;
   return doc.results;
+}
+
+/* Walk the text tracking JSON string state and the stack of open `{`/`[`.
+   Returns the text with the unclosed ones closed in order, or null when the
+   text is not merely unfinished (mismatched closer, or ends inside a string). */
+function closeOpenBrackets(text) {
+  const stack = [];
+  let inString = false;
+  let escaped = false;
+  for (const ch of text) {
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') stack.push('}');
+    else if (ch === '[') stack.push(']');
+    else if (ch === '}' || ch === ']') {
+      if (stack.pop() !== ch) return null;
+    }
+  }
+  if (inString || !stack.length) return null;
+  return text + stack.reverse().join('');
 }
 
 /* Keep only rows whose id was actually offered, dedupe, cap at MAX_PICKS. */

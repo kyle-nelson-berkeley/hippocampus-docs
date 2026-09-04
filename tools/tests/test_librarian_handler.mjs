@@ -297,6 +297,27 @@ test('fenced or reasoning-wrapped JSON is still parsed', async () => {
   assert.deepEqual(r.json.results.map((x) => x.id), [id]);
 });
 
+test('an answer that stops one closer short is repaired, not rejected', async () => {
+  // Real nano output, 2026-09-04: valid JSON minus the final `}`; finish "stop".
+  const id = ASK.candidates[1].id;
+  const short = `\n{"results":[{"id":${JSON.stringify(id)},"why":"Directly defines it."}]`;
+  assert.deepEqual(handler.parseModelJson(short).map((r) => r.id), [id]);
+  // Two closers missing, and a bracket inside a string must not confuse it.
+  const shorter = `{"results":[{"id":${JSON.stringify(id)},"why":"see [1] and {x}"}`;
+  assert.deepEqual(handler.parseModelJson(shorter).map((r) => r.id), [id]);
+  // Not merely unfinished: a mismatched closer, or cut off inside a string.
+  assert.equal(handler.parseModelJson('{"results":[}'), null);
+  assert.equal(handler.parseModelJson('{"results":[{"id":"abc'), null);
+  assert.equal(handler.parseModelJson('{"results":[{"id":1}]}garbage'), null);
+  // End to end: the primary answers short, the request still succeeds on it.
+  const fetchStub = providerStub([short]);
+  const r = await call('POST', ASK, { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  assert.equal(r.json.provider, 'nemotron');
+  assert.equal(fetchStub.calls.length, 1, 'no fallback was needed');
+  assert.deepEqual(r.json.results.map((x) => x.id), [id]);
+});
+
 test('a provider that answers 200 with unusable content falls through', async () => {
   const id = ASK.candidates[2].id;
   const fetchStub = providerStub(['I cannot help with that.', [id]]);
