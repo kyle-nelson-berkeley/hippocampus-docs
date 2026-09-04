@@ -131,6 +131,22 @@ const KEYS = { OPENROUTER_API_KEY: 'openrouter-test-key' };
 
 // ------------------------------------------------------------ method + body --
 
+test('every pre-body rejection tells the client to close the connection', async () => {
+  // 405 / 403 / 429 all answer before the body is read; a client that kept
+  // the socket open could otherwise leave an unread body pinning it.
+  const r405 = await call('GET', undefined, { env: KEYS });
+  assert.equal(r405.code, 405);
+  assert.equal(r405.headers.connection, 'close');
+  const r403 = await call('POST', ASK, { env: KEYS }, false,
+    { headers: { origin: 'https://evil.example', host: 'docs.example.org' } });
+  assert.equal(r403.code, 403);
+  assert.equal(r403.headers.connection, 'close');
+  const limiter = { check: () => ({ ok: false, retryAfter: 7 }) };
+  const r429 = await call('POST', ASK, { env: KEYS, limiter });
+  assert.equal(r429.code, 429);
+  assert.equal(r429.headers.connection, 'close');
+});
+
 test('only POST is answered', async () => {
   for (const method of ['GET', 'PUT', 'DELETE', 'HEAD']) {
     const r = await call(method, undefined, { env: KEYS });
@@ -373,6 +389,21 @@ test('the base URLs and the nemotron model id are environment-overridable', asyn
   assert.equal(r.code, 200);
   assert.equal(fetchStub.calls[0].url, 'http://127.0.0.1:9/mock/v1/chat/completions');
   assert.equal(fetchStub.calls[0].body.model, 'nvidia/some-other-model');
+});
+
+test('a Llama-family model override is refused, not forwarded', async () => {
+  // POLICY: no Llama model in any role. The env override is the only path by
+  // which a different id can reach OpenRouter, so it must be the checked path.
+  const fetchStub = providerStub([[ASK.candidates[0].id]]);
+  const env = Object.assign({}, KEYS, { LIBRARIAN_NEMOTRON_MODEL: 'meta-llama/llama-4-maverick' });
+  const r = await call('POST', Object.assign({ provider: 'nemotron' }, ASK), { env, fetch: fetchStub });
+  assert.equal(r.code, 502);
+  assert.equal(fetchStub.calls.length, 0, 'the forbidden model must never be sent upstream');
+  assert.match(r.json.providers[0].reason, /Llama-family model, which policy forbids/);
+  // the built-in gptoss id is not overridable at all, so the primary is untouched
+  const r2 = await call('POST', ASK, { env, fetch: providerStub([[ASK.candidates[0].id]]) });
+  assert.equal(r2.code, 200);
+  assert.equal(r2.json.provider, 'gptoss');
 });
 
 test('the gptoss base URL is environment-overridable (this is what dev_site mocks)', async () => {

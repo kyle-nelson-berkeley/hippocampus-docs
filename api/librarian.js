@@ -483,16 +483,27 @@ function validatePicks(rows, candidates) {
 
 // --------------------------------------------------------------- providers --
 
+// POLICY: no Llama-family model in any role. The built-in ids are fixed; an
+// environment override is the only way a different id can reach a provider, so
+// it is checked here and a forbidden id disables that provider outright.
+const FORBIDDEN_MODEL = /llama/i;
+
 function providerConfig(provider, env) {
-  return {
+  const override = provider.modelEnv ? env[provider.modelEnv] : undefined;
+  const cfg = {
     name: provider.name,
     key: env[provider.keyEnv],
     keyEnv: provider.keyEnv,
     url: env[provider.urlEnv] || provider.defaultUrl,
-    model: (provider.modelEnv && env[provider.modelEnv]) || provider.model,
+    model: override || provider.model,
     routing: provider.routing || null,
     reasoning: provider.reasoning || null,
+    refused: null,
   };
+  if (override && FORBIDDEN_MODEL.test(override)) {
+    cfg.refused = `${provider.modelEnv} names a Llama-family model, which policy forbids`;
+  }
+  return cfg;
 }
 
 async function askProvider(cfg, messages, doFetch) {
@@ -549,15 +560,22 @@ async function handle(req, res, deps) {
   const doFetch = deps.fetch || ((url, init) => fetch(url, init));
   const dataDir = deps.dataDir || path.join(__dirname, '..', 'data', 'graph');
 
+  // Every rejection below happens before the body is read. The body is left
+  // unread on purpose (reading it is what the gates are saving), so each of
+  // these answers carries `connection: close`: the client may not reuse a
+  // socket whose request was never consumed.
+  const CLOSE = { connection: 'close' };
+
   if (req.method !== 'POST') {
-    send(res, 405, { error: 'method not allowed — POST a JSON body' }, { allow: 'POST' });
+    send(res, 405, { error: 'method not allowed — POST a JSON body' },
+      Object.assign({ allow: 'POST' }, CLOSE));
     return;
   }
 
   // Both gates run before the body is even read, so a refused request costs
   // nothing but a socket — and never a provider call.
   if (!originAllowed(req)) {
-    send(res, 403, { error: 'cross-origin requests are not accepted' });
+    send(res, 403, { error: 'cross-origin requests are not accepted' }, CLOSE);
     return;
   }
   const who = clientKey(req);
@@ -565,7 +583,7 @@ async function handle(req, res, deps) {
     .check(who.key, Date.now(), !isHosted() && !who.proxied && isLoopback(who.key));
   if (!verdict.ok) {
     send(res, 429, { error: 'too many requests — the librarian is rate limited' },
-      { 'retry-after': String(verdict.retryAfter) });
+      Object.assign({ 'retry-after': String(verdict.retryAfter) }, CLOSE));
     return;
   }
 
@@ -604,6 +622,10 @@ async function handle(req, res, deps) {
     const cfg = providerConfig(provider, env);
     if (!cfg.key) {
       failures.push({ provider: cfg.name, reason: `no key: ${cfg.keyEnv} is not set` });
+      continue;
+    }
+    if (cfg.refused) {
+      failures.push({ provider: cfg.name, reason: cfg.refused });
       continue;
     }
     try {
