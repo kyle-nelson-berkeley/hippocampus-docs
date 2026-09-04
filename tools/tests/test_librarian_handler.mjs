@@ -1269,3 +1269,40 @@ test('every response carries x-librarian-version: 2 — the zero-quota readiness
     { headers: { origin: 'https://evil.example', host: 'docs.example.org' } });
   assert.equal(r403.headers['x-librarian-version'], '2');
 });
+
+test('every row the walk can emit satisfies the client href allowlist', () => {
+  /* The client (js/search.js, plan §4) renders a returned row it does not
+     already hold only when the row carries a string kind and title and an href
+     matching `#/…` or `https://github.com/…`; anything else is a schema failure
+     that throws the whole answer away. That contract is pinned HERE, on the
+     producing side, across every id shape the resolver can emit — a page, a
+     repository, a fork, a CAD part, a class and a file — because a row that
+     fails it does not degrade, it discards the search. A candidate id is the
+     one shape with no href: the client owns that row already. */
+  const ctx = ctxFor(['page:#/mine']);
+  const shapes = [
+    AFRO_PAGE,
+    ESC_REPO,
+    'repo:tgy',
+    'cad:motor/propdrive_2835/mount_2835.ipt',
+    AFRO_SYM,
+    'file:esc:include/afro_esc.h',
+  ];
+  const rows = handler.resolveHits(shapes.map((id) => ({ id, why: 'w' })), ctx);
+  assert.equal(rows.length, shapes.length, 'every shape resolves on real data');
+  for (const row of rows) {
+    assert.equal(typeof row.id, 'string');
+    assert.ok(row.id, 'a row always has a non-empty id');
+    assert.equal(typeof row.kind, 'string');
+    assert.equal(typeof row.title, 'string');
+    assert.equal(typeof row.where, 'string');
+    assert.equal(typeof row.snippet, 'string');
+    assert.equal(typeof row.why, 'string');
+    assert.ok(row.why.length <= 120, 'why is clipped');
+    assert.ok(/^(#\/|https:\/\/github\.com\/)/.test(row.href),
+      `${row.id}: href ${row.href} is not on the client allowlist`);
+    assert.equal(row.id, `${row.kind}:${row.href}`, 'the id is the client <kind>:<href> scheme');
+  }
+  const mine = handler.resolveHits([{ id: 'page:#/mine', why: 'w' }], ctx);
+  assert.equal(mine[0].href, undefined, 'a candidate row carries no href — the client owns it');
+});
