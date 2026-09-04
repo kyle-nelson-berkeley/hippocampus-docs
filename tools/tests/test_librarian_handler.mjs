@@ -255,7 +255,7 @@ test('a good provider answer is validated, filtered and capped at 8', async () =
   ]]);
   const r = await call('POST', ASK, { env: KEYS, fetch: fetchStub });
   assert.equal(r.code, 200);
-  assert.equal(r.json.provider, 'gptoss', 'gptoss is the primary');
+  assert.equal(r.json.provider, 'nemotron', 'nemotron super is the primary');
   assert.ok(Array.isArray(r.json.results));
   assert.equal(r.json.results.length, 8, 'capped at 8');
   assert.equal(r.json.results[0].id, known[5]);
@@ -272,10 +272,11 @@ test('the outgoing provider request is temperature 0 and carries the candidates'
   assert.equal(r.code, 200);
   const sent = fetchStub.calls[0];
   assert.equal(sent.body.temperature, 0);
-  assert.equal(sent.body.model, 'openai/gpt-oss-120b');
-  assert.deepEqual(sent.body.provider, { order: ['Groq', 'Cerebras'], allow_fallbacks: true },
-    'the upstream is pinned: default routing measured as a latency lottery');
-  assert.deepEqual(sent.body.reasoning, { effort: 'low' }, 'a re-rank is not a reasoning task');
+  assert.equal(sent.body.model, 'nvidia/nemotron-3-super-120b-a12b:free');
+  assert.ok(sent.body.model.endsWith(':free'), 'free models only — Kyle, 2026-09-04');
+  assert.deepEqual(sent.body.provider, { order: ['Nvidia'], allow_fallbacks: true },
+    'the upstream is pinned to the one that was measured');
+  assert.deepEqual(sent.body.reasoning, { enabled: false }, 'a re-rank is not a reasoning task');
   assert.equal(sent.body.max_tokens, 2000, '900 truncated answers with long code ids');
   assert.ok(!/llama/i.test(sent.body.model), 'a Llama-family model is forbidden by policy');
   assert.equal(sent.init.method, 'POST');
@@ -301,7 +302,7 @@ test('a provider that answers 200 with unusable content falls through', async ()
   const fetchStub = providerStub(['I cannot help with that.', [id]]);
   const r = await call('POST', ASK, { env: KEYS, fetch: fetchStub });
   assert.equal(r.code, 200);
-  assert.equal(r.json.provider, 'nemotron');
+  assert.equal(r.json.provider, 'nano');
   assert.equal(fetchStub.calls.length, 2);
 });
 
@@ -309,17 +310,18 @@ test('a provider that answers 200 with unusable content falls through', async ()
 
 test('a failing primary falls back to the other provider', async () => {
   const id = ASK.candidates[4].id;
-  const fetchStub = providerStub([{ status: 503, text: 'groq is down' }, [id]]);
+  const fetchStub = providerStub([{ status: 503, text: 'nvidia is down' }, [id]]);
   const r = await call('POST', ASK, { env: KEYS, fetch: fetchStub });
   assert.equal(r.code, 200);
-  assert.equal(r.json.provider, 'nemotron');
+  assert.equal(r.json.provider, 'nano');
   assert.deepEqual(r.json.results.map((x) => x.id), [id]);
   assert.equal(fetchStub.calls.length, 2, 'exactly one retry, on the OTHER provider');
   assert.equal(fetchStub.calls[0].url, fetchStub.calls[1].url,
     'same gateway by construction — see the PROVIDERS note in api/librarian.js');
   assert.notEqual(fetchStub.calls[0].body.model, fetchStub.calls[1].body.model,
     'the retry used the OTHER entry: same endpoint, different model');
-  assert.equal(fetchStub.calls[1].body.model, 'nvidia/nemotron-3-super-120b-a12b:free');
+  assert.equal(fetchStub.calls[1].body.model, 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free');
+  assert.ok(fetchStub.calls[1].body.model.endsWith(':free'), 'the fallback is free too');
   assert.deepEqual(fetchStub.calls[1].body.provider.order, ['Nvidia'],
     'the fallback entry carries its own upstream pin');
   assert.deepEqual(fetchStub.calls[1].body.reasoning, { enabled: false },
@@ -332,7 +334,7 @@ test('both providers failing is a 502 that says why', async () => {
   assert.equal(r.code, 502);
   assert.equal(fetchStub.calls.length, 2);
   assert.ok(Array.isArray(r.json.providers));
-  assert.deepEqual(r.json.providers.map((p) => p.provider), ['gptoss', 'nemotron']);
+  assert.deepEqual(r.json.providers.map((p) => p.provider), ['nemotron', 'nano']);
   for (const p of r.json.providers) assert.ok(p.reason, 'each failure carries a reason');
 });
 
@@ -366,7 +368,7 @@ test('both entries share one key, so a missing key skips every provider', async 
   const r = await call('POST', ASK, { env: {}, fetch: fetchStub });
   assert.equal(r.code, 502);
   assert.equal(fetchStub.calls.length, 0, 'no key means no provider call at all');
-  assert.deepEqual(r.json.providers.map((p) => p.provider), ['gptoss', 'nemotron']);
+  assert.deepEqual(r.json.providers.map((p) => p.provider), ['nemotron', 'nano']);
   for (const p of r.json.providers) assert.match(p.reason, /OPENROUTER_API_KEY/);
 });
 
@@ -383,12 +385,12 @@ test('the base URLs and the nemotron model id are environment-overridable', asyn
   const fetchStub = providerStub([[ASK.candidates[0].id]]);
   const env = Object.assign({}, KEYS, {
     LIBRARIAN_NEMOTRON_URL: 'http://127.0.0.1:9/mock/v1/chat/completions',
-    LIBRARIAN_NEMOTRON_MODEL: 'nvidia/some-other-model',
+    LIBRARIAN_NEMOTRON_MODEL: 'nvidia/some-other-model:free',
   });
   const r = await call('POST', Object.assign({ provider: 'nemotron' }, ASK), { env, fetch: fetchStub });
   assert.equal(r.code, 200);
   assert.equal(fetchStub.calls[0].url, 'http://127.0.0.1:9/mock/v1/chat/completions');
-  assert.equal(fetchStub.calls[0].body.model, 'nvidia/some-other-model');
+  assert.equal(fetchStub.calls[0].body.model, 'nvidia/some-other-model:free');
 });
 
 test('a Llama-family model override is refused, not forwarded', async () => {
@@ -400,19 +402,81 @@ test('a Llama-family model override is refused, not forwarded', async () => {
   assert.equal(r.code, 502);
   assert.equal(fetchStub.calls.length, 0, 'the forbidden model must never be sent upstream');
   assert.match(r.json.providers[0].reason, /Llama-family model, which policy forbids/);
-  // the built-in gptoss id is not overridable at all, so the primary is untouched
-  const r2 = await call('POST', ASK, { env, fetch: providerStub([[ASK.candidates[0].id]]) });
+  // unpinned, the refused primary is skipped and the fallback answers
+  const stub2 = providerStub([[ASK.candidates[0].id]]);
+  const r2 = await call('POST', ASK, { env, fetch: stub2 });
   assert.equal(r2.code, 200);
-  assert.equal(r2.json.provider, 'gptoss');
+  assert.equal(r2.json.provider, 'nano');
+  assert.equal(stub2.calls.length, 1, 'the forbidden primary was never called');
 });
 
-test('the gptoss base URL is environment-overridable (this is what dev_site mocks)', async () => {
+test('a paid model override is refused, so a stale env var cannot start billing', async () => {
+  // Free-only is a billing guarantee, and the override is the only path around
+  // the built-in ids. A paid id (no :free suffix) on either entry is skipped.
+  const fetchStub = providerStub([[ASK.candidates[0].id]]);
+  const env = Object.assign({}, KEYS, {
+    LIBRARIAN_NEMOTRON_MODEL: 'nvidia/nemotron-3-super-120b-a12b',
+    LIBRARIAN_NANO_MODEL: 'openai/gpt-oss-120b',
+  });
+  const r = await call('POST', ASK, { env, fetch: fetchStub });
+  assert.equal(r.code, 502);
+  assert.equal(fetchStub.calls.length, 0, 'no paid model is ever sent upstream');
+  assert.deepEqual(r.json.providers.map((p) => p.provider), ['nemotron', 'nano']);
+  for (const p of r.json.providers) assert.match(p.reason, /paid model; only :free variants/);
+});
+
+test('the primary base URL is environment-overridable (this is what dev_site mocks)', async () => {
   const fetchStub = providerStub([[ASK.candidates[0].id]]);
   const env = Object.assign({}, KEYS,
-    { LIBRARIAN_GPTOSS_URL: 'http://127.0.0.1:8131/__mock/v1/chat/completions' });
+    { LIBRARIAN_NEMOTRON_URL: 'http://127.0.0.1:8131/__mock/v1/chat/completions' });
   const r = await call('POST', ASK, { env, fetch: fetchStub });
   assert.equal(r.code, 200);
   assert.equal(fetchStub.calls[0].url, 'http://127.0.0.1:8131/__mock/v1/chat/completions');
+});
+
+// ------------------------------------------------------- free-only policy --
+
+test('every provider is a free variant and the deadlines fit the function', () => {
+  // Kyle, 2026-09-04: free models only, set and forget. And the primary's
+  // deadline plus the fallback's plus slack must sit under maxDuration: 15,
+  // or a slow primary makes the whole function time out with no answer.
+  const providers = handler.PROVIDERS;
+  assert.equal(providers.length, 2);
+  for (const p of providers) {
+    assert.ok(p.model.endsWith(':free'), `${p.name} must be a free model, got ${p.model}`);
+    assert.ok(!/llama/i.test(p.model), `${p.name} must not be a Llama-family model`);
+    assert.ok(Number.isInteger(p.timeoutMs) && p.timeoutMs > 0, `${p.name} needs a deadline`);
+  }
+  const total = providers.reduce((n, p) => n + p.timeoutMs, 0) + handler.TIMEOUT_SLACK_MS;
+  assert.ok(total <= handler.FUNCTION_MAX_DURATION_MS,
+    `deadlines ${total}ms exceed the function's ${handler.FUNCTION_MAX_DURATION_MS}ms`);
+  const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
+  const fn = vercel.functions && vercel.functions['api/librarian.js'];
+  assert.ok(fn, 'vercel.json declares api/librarian.js');
+  assert.equal(fn.maxDuration * 1000, handler.FUNCTION_MAX_DURATION_MS,
+    'the constant mirrors vercel.json; change both or neither');
+});
+
+test('each provider is aborted at its own deadline, and the message says which', async () => {
+  // A stub that never resolves until aborted; the primary (8000ms) must be
+  // cut at 8000, the fallback (5000ms) at 5000, and the reasons must name it.
+  const timers = [];
+  const hanging = (url, init) => new Promise((resolve, reject) => {
+    init.signal.addEventListener('abort', () => {
+      const e = new Error('aborted'); e.name = 'AbortError'; reject(e);
+    });
+  });
+  const realSetTimeout = global.setTimeout;
+  global.setTimeout = (fn, ms, ...a) => { timers.push(ms); return realSetTimeout(fn, 0, ...a); };
+  try {
+    const r = await call('POST', ASK, { env: KEYS, fetch: hanging });
+    assert.equal(r.code, 502);
+    assert.deepEqual(r.json.providers.map((p) => p.reason),
+      ['timed out after 8000ms', 'timed out after 5000ms']);
+    assert.ok(timers.includes(8000) && timers.includes(5000), 'both deadlines were armed');
+  } finally {
+    global.setTimeout = realSetTimeout;
+  }
 });
 
 // ------------------------------------------------------- no Vercel helpers --

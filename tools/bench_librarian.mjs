@@ -2,7 +2,7 @@
 /* bench_librarian — compare the librarian's two providers on real queries.
 
      node tools/bench_librarian.mjs --base http://127.0.0.1:8131
-     node tools/bench_librarian.mjs --base https://<deployment> --provider gptoss
+     node tools/bench_librarian.mjs --base https://<deployment> --provider nemotron
      node tools/bench_librarian.mjs --base https://<deployment> --delay 6000
 
    PACING, AND WHY IT IS NOT OPTIONAL AGAINST A DEPLOYMENT. The function limits
@@ -31,9 +31,9 @@
    "win" by being the only one with a key configured: the zero-key run and the
    one-key run reach exactly the same verdict — no winner.
 
-   NOT A BENCHMARK OUTCOME: the gptoss entry's model (openai/gpt-oss-120b,
-   never a Llama-family model) is fixed by POLICY. No number this script prints
-   can change it; it is not on the ballot.
+   NOT A BENCHMARK OUTCOME: both entries are FREE variants by Kyle's decision
+   (2026-09-04, "set and forget") and never a Llama-family model by policy. No
+   number this script prints can put a paid or Llama model on the ballot.
 
    BOTH ENTRIES CURRENTLY SHARE ONE GATEWAY (OpenRouter), so this compares two
    MODELS, not two vendors. A winner here settles which model answers first, and
@@ -47,7 +47,7 @@ const require = createRequire(import.meta.url);
 const ROOT = path.resolve(new URL('..', import.meta.url).pathname);
 const HC = require(path.join(ROOT, 'js', 'search.js'));
 
-const PROVIDERS = ['gptoss', 'nemotron'];
+const PROVIDERS = ['nemotron', 'nano'];
 const REQUEST_TIMEOUT_MS = 30000;   // above the function's own 15s ceiling
 
 /* 15 queries. The first ten are data/search-probes.json verbatim — the standing
@@ -288,7 +288,7 @@ try {
 }
 if (args.help || !args.base) {
   process.stdout.write(
-    'usage: node tools/bench_librarian.mjs --base <url> [--provider gptoss|nemotron] [--delay <ms>]\n'
+    'usage: node tools/bench_librarian.mjs --base <url> [--provider nemotron|nano] [--delay <ms>]\n'
     + '  --base is required; it is the site root, e.g. http://127.0.0.1:8131\n'
     + '  --delay spaces requests out; it defaults to '
     + `${HOSTED_MIN_INTERVAL_MS}ms against a hosted base and 0 against loopback,\n`
@@ -338,7 +338,7 @@ if (blocked.length) {
   process.stdout.write(
     '\nNo winner. A provider is only declared the winner when BOTH answered all '
     + `${cases.length} queries error-free at temperature 0, so that availability can never `
-    + 'look like quality.\nThe default order in api/librarian.js (gptoss primary, nemotron '
+    + 'look like quality.\nThe default order in api/librarian.js (nemotron primary, nano '
     + 'fallback) stays PROVISIONAL.\n');
 } else {
   const ranked = rows.slice().sort((a, b) =>
@@ -351,7 +351,7 @@ if (blocked.length) {
     : `WINNER: ${win.provider} — ${win.top1}/${cases.length} top-1 vs ${lose.top1}/${cases.length}, `
       + `median ${median(win.latencies)}ms vs ${median(lose.latencies)}ms.\n`);
   process.stdout.write(
-    'Reminder: this decides the PRIMARY/FALLBACK ORDER only. The primary model choice '
-    + '(openai/gpt-oss-120b, never a Llama-family model) is a policy constraint and is '
+    'Reminder: this decides the PRIMARY/FALLBACK ORDER only. Free-only and '
+    + 'never-Llama are policy constraints and are '
     + 'not a benchmark outcome.\n');
 }

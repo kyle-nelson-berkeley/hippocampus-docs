@@ -40,78 +40,82 @@ const MAX_CANDIDATES = 40;        // the client sends 25; this is the hard ceili
 const MAX_FIELD = { id: 200, title: 200, kind: 40, where: 200, snippet: 240 };
 const MAX_CANDIDATE_CHARS = 24 * 1024;   // aggregate across the whole list
 const ONE_LINER_CHARS = 140;
-// ~5s per provider, primary + one fallback, comfortably inside the function's
-// maxDuration: 15 (vercel.json) and inside the client's 18s abort deadline.
-const PROVIDER_TIMEOUT_MS = 5000;
+// Per-provider deadlines live on the entries below. Their SUM plus overhead
+// must stay inside the function's maxDuration: 15 (vercel.json) and the
+// client's 18s abort deadline; a test pins that arithmetic.
 
-/* ONE GATEWAY, TWO MODELS — a real trade, recorded rather than glossed over.
-   Groq's signup was inoperable (a server-side "signup error" reproduced by
-   other users, unrelated to the account's email domain) and NVIDIA's NIM API
-   sits behind a manual verification queue with no committed turnaround.
-   OpenRouter issues a key immediately and serves BOTH models already vetted
-   here, so the librarian works today and the two-model benchmark can run at
-   all.
+/* FREE MODELS ONLY — Kyle's decision (2026-09-04): "set and forget", no spend.
+   Both entries are `:free` variants on OpenRouter, so nothing is ever billed.
+   What free costs, plainly: OpenRouter caps free-model requests per key at
+   ~20/min and, for an account that never bought $10 of credit, 50/day. A
+   throttled answer is an error here and the client falls back to the local
+   index, so the site never breaks — it just re-ranks nothing past request 50.
 
-   WHAT THAT COSTS, PLAINLY: these entries are no longer independent
-   infrastructure. A failure used to mean one of two companies was down; an
-   OpenRouter outage now takes both paths with it. The fallback below buys
-   model-level resilience — one model timing out, refusing, or answering
-   unparseably — and NOT gateway-level resilience. Do not read it as the
-   latter. The per-provider URL overrides are kept separate so one path can
-   still be broken deliberately (the preview fallback drill) and so either
-   entry can be repointed at a direct vendor endpoint the moment one becomes
-   reachable. */
+   ONE GATEWAY, TWO MODELS — a real trade, recorded rather than glossed over.
+   Groq's signup was inoperable and NVIDIA's own API sits behind a manual
+   verification queue, so both entries ride OpenRouter. An OpenRouter outage
+   takes both paths with it: the fallback below buys model-level resilience
+   (one model timing out, refusing, or answering unparseably), NOT gateway-
+   level resilience. The per-provider URL overrides are kept separate so one
+   path can still be broken deliberately (the fallback drill) and so either
+   entry can be repointed at a direct vendor endpoint the moment one is
+   reachable.
+
+   HOW THESE TWO WERE CHOSEN (measured 2026-09-04, 15 real queries each through
+   this handler, temperature 0, 5s deadline — see tools/bench_librarian.mjs):
+     nemotron-3-super-120b-a12b:free   13/15  median 2955ms  top-1 12/15  (2 timeouts)
+     nemotron-3-nano-omni-30b-a3b:free  8/15  median 1790ms  top-1  7/15  (6 empty answers)
+     nemotron-3.5-lightning:free        1/15  (14 timeouts)
+     nemotron-3-ultra-550b:free         0/15  (15 timeouts)
+     gemma-4-26b / gemma-4-31b :free    0/15  ("temporarily rate-limited upstream")
+     glm-5.2:free                       1/15  (rate-limited upstream)
+     minimax-m2.7:free                  0/15  (refuses reasoning: disabled)
+   Super is the only free model that works; nano is a different, faster model
+   for the moments Super is slow, which a retry of Super would not cover. Both
+   are hybrid Mamba-Transformer MoEs, not Llama derivatives (policy). */
 /* `routing` is OpenRouter's `provider` request field — an OpenRouter-only
    extension, sent only when an entry carries it. Repoint an entry at a direct
    vendor endpoint and drop its `routing` in the same edit: OpenAI-compatible
    servers usually ignore unknown fields, but that is a habit, not a contract. */
 const PROVIDERS = [
   {
-    name: 'gptoss',
-    keyEnv: 'OPENROUTER_API_KEY',
-    urlEnv: 'LIBRARIAN_GPTOSS_URL',
-    defaultUrl: 'https://openrouter.ai/api/v1/chat/completions',
-    // POLICY, NOT BENCHMARK: a Llama-family model is forbidden here — at any
-    // tier, in any role, fallback included. That is a standing rule, so the
-    // model id is deliberately NOT environment-overridable: an env var would be
-    // a way to put a Llama model back in without anyone reviewing it.
-    model: 'openai/gpt-oss-120b',
-    modelEnv: null,
-    // OpenRouter fans this model out to ~20 upstreams and defaults to the
-    // cheapest, which measured as a lottery: 384ms on Groq, 813ms on CoreWeave,
-    // and a 10.8s median across a 15-query run that landed on slow ones. Groq
-    // and Cerebras are the fast-inference upstreams; either is sub-second on
-    // a ~7.5k-token prompt. Pinned, with fallbacks allowed so a Groq outage
-    // degrades to slower rather than to nothing.
-    routing: { order: ['Groq', 'Cerebras'], allow_fallbacks: true },
-    // A re-rank is not a reasoning task. At default effort the model spent
-    // ~400 chars thinking per query and, on queries whose candidates carry
-    // long code ids, ran the 900-token cap out mid-JSON (4 of 15 truncated).
-    reasoning: { effort: 'low' },
-  },
-  {
     name: 'nemotron',
     keyEnv: 'OPENROUTER_API_KEY',
     urlEnv: 'LIBRARIAN_NEMOTRON_URL',
     defaultUrl: 'https://openrouter.ai/api/v1/chat/completions',
-    // Nemotron 3 Super's FREE variant, served by NVIDIA's own upstream —
-    // measured at ~550ms (523/550/574 on repeat) for the handler-shaped
-    // prompt, against a 10.6s median for the paid id on OpenRouter's GPU
-    // resellers. Free was the brief's ask; fast is why it is viable at all.
-    // What free costs: OpenRouter throttles free-tier keys (~20 req/min) and
-    // a throttled answer is an error here, which the fallback order already
-    // treats as "try the other one". The paid id stays reachable through
-    // LIBRARIAN_NEMOTRON_MODEL if that ever bites. Nemotron 3 is a hybrid
-    // Mamba-Transformer MoE, not a Llama derivative, so it satisfies the same
-    // policy constraint as the entry above.
+    // POLICY, NOT BENCHMARK: a Llama-family model is forbidden here — at any
+    // tier, in any role, fallback included. providerConfig() refuses an
+    // override that names one.
     model: 'nvidia/nemotron-3-super-120b-a12b:free',
     modelEnv: 'LIBRARIAN_NEMOTRON_MODEL',
+    // The free variant has exactly one upstream (NVIDIA). Pinned anyway so a
+    // future second upstream cannot silently change the measured behaviour.
     routing: { order: ['Nvidia'], allow_fallbacks: true },
     // Thinking on, the paid id thought past a 5s deadline on 15 of 15 real
-    // queries. Off, it answers in ~0.5s on NVIDIA's upstream.
+    // queries. Off, it answers in ~3s.
     reasoning: { enabled: false },
+    // Its two failures in 15 were timeouts at 5000ms with the slowest success
+    // at 4718ms — the deadline was clipping real answers. 8s keeps those and
+    // still leaves room for the fallback below.
+    timeoutMs: 8000,
+  },
+  {
+    name: 'nano',
+    keyEnv: 'OPENROUTER_API_KEY',
+    urlEnv: 'LIBRARIAN_NANO_URL',
+    defaultUrl: 'https://openrouter.ai/api/v1/chat/completions',
+    model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+    modelEnv: 'LIBRARIAN_NANO_MODEL',
+    routing: { order: ['Nvidia'], allow_fallbacks: true },
+    reasoning: { enabled: false },
+    timeoutMs: 5000,
   },
 ];
+
+// The sum of the deadlines, plus this much slack for reading the body and
+// the catalog, must fit under vercel.json's maxDuration. Asserted by a test.
+const FUNCTION_MAX_DURATION_MS = 15000;
+const TIMEOUT_SLACK_MS = 1000;
 
 const PROVIDER_NAMES = PROVIDERS.map((p) => p.name);
 
@@ -483,10 +487,13 @@ function validatePicks(rows, candidates) {
 
 // --------------------------------------------------------------- providers --
 
-// POLICY: no Llama-family model in any role. The built-in ids are fixed; an
-// environment override is the only way a different id can reach a provider, so
-// it is checked here and a forbidden id disables that provider outright.
+// POLICY: no Llama-family model in any role, and FREE variants only (Kyle,
+// 2026-09-04: no spend, ever). The built-in ids satisfy both; an environment
+// override is the only way a different id can reach a provider, so it is
+// checked here and a violating id disables that provider outright — a stale
+// override left over from an earlier paid setup cannot quietly start billing.
 const FORBIDDEN_MODEL = /llama/i;
+const FREE_SUFFIX = ':free';
 
 function providerConfig(provider, env) {
   const override = provider.modelEnv ? env[provider.modelEnv] : undefined;
@@ -498,17 +505,20 @@ function providerConfig(provider, env) {
     model: override || provider.model,
     routing: provider.routing || null,
     reasoning: provider.reasoning || null,
+    timeoutMs: provider.timeoutMs,
     refused: null,
   };
   if (override && FORBIDDEN_MODEL.test(override)) {
     cfg.refused = `${provider.modelEnv} names a Llama-family model, which policy forbids`;
+  } else if (override && !override.endsWith(FREE_SUFFIX)) {
+    cfg.refused = `${provider.modelEnv} names a paid model; only ${FREE_SUFFIX} variants are allowed`;
   }
   return cfg;
 }
 
 async function askProvider(cfg, messages, doFetch) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), PROVIDER_TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), cfg.timeoutMs);
   try {
     const response = await doFetch(cfg.url, {
       method: 'POST',
@@ -644,7 +654,7 @@ async function handle(req, res, deps) {
       // The reason is the upstream's own words; a key never appears in it
       // because the key only ever travels in an Authorization header.
       const reason = e && e.name === 'AbortError'
-        ? `timed out after ${PROVIDER_TIMEOUT_MS}ms`
+        ? `timed out after ${cfg.timeoutMs}ms`
         : String((e && e.message) || e).slice(0, 200);
       failures.push({ provider: cfg.name, reason });
     }
@@ -666,3 +676,5 @@ module.exports.clientKey = clientKey;
 module.exports.parseModelJson = parseModelJson;
 module.exports.validatePicks = validatePicks;
 module.exports.PROVIDERS = PROVIDERS;
+module.exports.FUNCTION_MAX_DURATION_MS = FUNCTION_MAX_DURATION_MS;
+module.exports.TIMEOUT_SLACK_MS = TIMEOUT_SLACK_MS;
