@@ -87,32 +87,43 @@ function candidates(n) {
 
 const ASK = { q: 'thruster model', candidates: candidates(12) };
 
-/* An OpenAI-compatible chat-completions stub. `answers` is consumed in order;
-   each entry is either an array of ids (a 200) or {status, text} (a failure). */
+function modelReply(content) {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({ choices: [{ message: { role: 'assistant', content } }] }),
+    text: async () => content,
+  };
+}
+
+/* A hop answer in the shape the walk asks for: {"hits":[{id,why}], "open":[…]}.
+   `hits` entries may be bare id strings; `open` is left out when unset. */
+function hopDoc(spec) {
+  const hits = (spec.hits || []).map((h) => (typeof h === 'string' ? { id: h, why: 'because' } : h));
+  const doc = { hits };
+  if (spec.open !== undefined) doc.open = spec.open;
+  return JSON.stringify(doc);
+}
+
+/* An OpenAI-compatible chat-completions stub. `answers` is consumed in order,
+   the LAST entry repeating for every further call. Each entry is one of:
+     [id, id, …]           a 200 answering {hits: those ids, open: []}
+     {hits, open}          a 200 answering exactly that hop document
+     {status, text}        an upstream HTTP failure
+     "raw text"            a 200 carrying that content verbatim
+     an Error              thrown, as a network error is
+     (n, url, init) => …   called with the 1-based call number (may throw)   */
 function providerStub(answers) {
   const calls = [];
   const queue = answers.slice();
   const fn = async (url, init) => {
     calls.push({ url, init, body: JSON.parse(init.body) });
     const next = queue.length > 1 ? queue.shift() : queue[0];
+    if (typeof next === 'function') return next(calls.length, url, init);
     if (next instanceof Error) throw next;
-    if (Array.isArray(next)) {
-      const content = JSON.stringify({ results: next.map((id) => ({ id, why: 'because' })) });
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ choices: [{ message: { role: 'assistant', content } }] }),
-        text: async () => content,
-      };
-    }
-    if (typeof next === 'string') {   // a 200 carrying raw (possibly bad) content
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ choices: [{ message: { content: next } }] }),
-        text: async () => next,
-      };
-    }
+    if (Array.isArray(next)) return modelReply(hopDoc({ hits: next, open: [] }));
+    if (typeof next === 'string') return modelReply(next);
+    if (next && typeof next === 'object' && next.status === undefined) return modelReply(hopDoc(next));
     return {
       ok: false,
       status: next.status,
@@ -248,11 +259,22 @@ test('the real repo catalog builds and stays compact', () => {
 // -------------------------------------------------------------- the 200 path -
 
 test('a good provider answer is validated, filtered and capped at 8', async () => {
+  /* This test used to carry the invariant "only candidate ids, never an
+     invented one". The walk answers with ids the client never sent — catalog
+     ids, and code-level sym:/file: ids — so that invariant is REPLACED here by
+     a STRICTLY STRONGER one: every returned id must RESOLVE against real site
+     data (a candidate id, a catalog id, or a validated sym:/file: id), and
+     everything that does not resolve is dropped. The hallucinated-id assertion
+     survives inside the stronger form, on three shapes rather than one. */
   const known = ASK.candidates.map((c) => c.id);
-  const fetchStub = providerStub([[
-    known[5], 'hallucinated:id', known[1], known[5], known[0], known[2], known[3],
-    known[4], known[6], known[7], known[8], known[9], known[10],
-  ]]);
+  const fetchStub = providerStub([{
+    open: [],
+    hits: [
+      known[5], 'hallucinated:id', known[1], 'page:#/no/such/route', known[5],
+      known[0], 'sym:esc:no/such/file.h:Nope', known[2], known[3], 'repo:esc',
+      known[4], known[6], known[7], known[8], known[9], known[10],
+    ],
+  }]);
   const r = await call('POST', ASK, { env: KEYS, fetch: fetchStub });
   assert.equal(r.code, 200);
   assert.equal(r.json.provider, 'nemotron', 'nemotron super is the primary');
@@ -262,8 +284,18 @@ test('a good provider answer is validated, filtered and capped at 8', async () =
   assert.equal(r.json.results[1].id, known[1], 'the unknown id was dropped');
   const ids = r.json.results.map((x) => x.id);
   assert.equal(new Set(ids).size, ids.length, 'deduped');
-  for (const id of ids) assert.ok(known.includes(id), `${id} came from the candidate list`);
-  for (const row of r.json.results) assert.equal(typeof row.why, 'string');
+  for (const bad of ['hallucinated:id', 'page:#/no/such/route', 'sym:esc:no/such/file.h:Nope']) {
+    assert.ok(!ids.includes(bad), `${bad} does not resolve, so it must not be returned`);
+  }
+  for (const row of r.json.results) {
+    assert.equal(typeof row.why, 'string');
+    const resolved = known.includes(row.id)
+      || (typeof row.href === 'string' && /^(#\/|https:\/\/github\.com\/)/.test(row.href));
+    assert.ok(resolved, `${row.id} resolves against real site data`);
+  }
+  // the one catalog id in the answer resolved to a real repository row
+  const repo = r.json.results.find((x) => x.kind === 'repo');
+  assert.equal(repo.href, 'https://github.com/HippoCampusRobotics/esc');
 });
 
 test('the outgoing provider request is temperature 0 and carries the candidates', async () => {
@@ -291,7 +323,7 @@ test('the outgoing provider request is temperature 0 and carries the candidates'
 
 test('fenced or reasoning-wrapped JSON is still parsed', async () => {
   const id = ASK.candidates[3].id;
-  const wrapped = `<think>weighing the options</think>\n\`\`\`json\n{"results":[{"id":"${id}","why":"w"}]}\n\`\`\``;
+  const wrapped = `<think>weighing the options</think>\n\`\`\`json\n{"hits":[{"id":"${id}","why":"w"}]}\n\`\`\``;
   const r = await call('POST', ASK, { env: KEYS, fetch: providerStub([wrapped]) });
   assert.equal(r.code, 200);
   assert.deepEqual(r.json.results.map((x) => x.id), [id]);
@@ -299,16 +331,20 @@ test('fenced or reasoning-wrapped JSON is still parsed', async () => {
 
 test('an answer that stops one closer short is repaired, not rejected', async () => {
   // Real nano output, 2026-09-04: valid JSON minus the final `}`; finish "stop".
+  // parseModelJson returns the whole hop DOCUMENT now (the walk needs `open`
+  // as well as `hits`), so the rows are read off `.hits`.
   const id = ASK.candidates[1].id;
-  const short = `\n{"results":[{"id":${JSON.stringify(id)},"why":"Directly defines it."}]`;
-  assert.deepEqual(handler.parseModelJson(short).map((r) => r.id), [id]);
+  const short = `\n{"hits":[{"id":${JSON.stringify(id)},"why":"Directly defines it."}]`;
+  assert.deepEqual(handler.parseModelJson(short).hits.map((r) => r.id), [id]);
   // Two closers missing, and a bracket inside a string must not confuse it.
-  const shorter = `{"results":[{"id":${JSON.stringify(id)},"why":"see [1] and {x}"}`;
-  assert.deepEqual(handler.parseModelJson(shorter).map((r) => r.id), [id]);
+  const shorter = `{"hits":[{"id":${JSON.stringify(id)},"why":"see [1] and {x}"}`;
+  assert.deepEqual(handler.parseModelJson(shorter).hits.map((r) => r.id), [id]);
   // Not merely unfinished: a mismatched closer, or cut off inside a string.
-  assert.equal(handler.parseModelJson('{"results":[}'), null);
-  assert.equal(handler.parseModelJson('{"results":[{"id":"abc'), null);
-  assert.equal(handler.parseModelJson('{"results":[{"id":1}]}garbage'), null);
+  assert.equal(handler.parseModelJson('{"hits":[}'), null);
+  assert.equal(handler.parseModelJson('{"hits":[{"id":"abc'), null);
+  assert.equal(handler.parseModelJson('{"hits":[{"id":1}]}garbage'), null);
+  // A document with no hits array at all is not an answer.
+  assert.equal(handler.parseModelJson('{"open":["esc"]}'), null);
   // End to end: the primary answers short, the request still succeeds on it.
   const fetchStub = providerStub([short]);
   const r = await call('POST', ASK, { env: KEYS, fetch: fetchStub });
@@ -458,24 +494,34 @@ test('the primary base URL is environment-overridable (this is what dev_site moc
 // ------------------------------------------------------- free-only policy --
 
 test('every provider is a free variant and the deadlines fit the function', () => {
-  // Kyle, 2026-09-04: free models only, set and forget. And the primary's
-  // deadline plus the fallback's plus slack must sit under maxDuration: 15,
-  // or a slow primary makes the whole function time out with no answer.
+  // Kyle, 2026-09-04: free models only, set and forget. The budget is now one
+  // SEARCH budget rather than a sum of two calls: every call is clamped to what
+  // is left of SEARCH_BUDGET_MS, and that budget plus slack sits under
+  // maxDuration: 15. The double-timeout path (super 8000 then nano 5000) has to
+  // fit inside the budget by CONSTANTS alone, with no appeal to runtime luck.
   const providers = handler.PROVIDERS;
   assert.equal(providers.length, 2);
   for (const p of providers) {
     assert.ok(p.model.endsWith(':free'), `${p.name} must be a free model, got ${p.model}`);
     assert.ok(!/llama/i.test(p.model), `${p.name} must not be a Llama-family model`);
     assert.ok(Number.isInteger(p.timeoutMs) && p.timeoutMs > 0, `${p.name} needs a deadline`);
+    assert.ok(p.timeoutMs <= handler.SEARCH_BUDGET_MS,
+      `${p.name}'s ceiling ${p.timeoutMs}ms must fit the search budget`);
   }
-  const total = providers.reduce((n, p) => n + p.timeoutMs, 0) + handler.TIMEOUT_SLACK_MS;
-  assert.ok(total <= handler.FUNCTION_MAX_DURATION_MS,
-    `deadlines ${total}ms exceed the function's ${handler.FUNCTION_MAX_DURATION_MS}ms`);
+  assert.ok(handler.SEARCH_BUDGET_MS + handler.TIMEOUT_SLACK_MS <= handler.FUNCTION_MAX_DURATION_MS,
+    'the search budget plus slack must sit under the function ceiling');
+  const ceilings = providers.reduce((n, p) => n + p.timeoutMs, 0);
+  assert.ok(ceilings <= handler.SEARCH_BUDGET_MS,
+    `a hop that times out on both entries costs ${ceilings}ms — over the budget`);
+  assert.equal(handler.MAX_MODEL_CALLS, 3, 'at most three model calls per search');
+  assert.ok(handler.MIN_HOP_MS > 0 && handler.MIN_HOP_MS < handler.SEARCH_BUDGET_MS);
   const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
   const fn = vercel.functions && vercel.functions['api/librarian.js'];
   assert.ok(fn, 'vercel.json declares api/librarian.js');
   assert.equal(fn.maxDuration * 1000, handler.FUNCTION_MAX_DURATION_MS,
     'the constant mirrors vercel.json; change both or neither');
+  assert.equal(fn.includeFiles, '{data/graph,search}/**',
+    'the walk reads the graph AND the search index out of its own bundle');
 });
 
 test('each provider is aborted at its own deadline, and the message says which', async () => {
@@ -745,4 +791,481 @@ test('the shared per-instance limiter is what a real deployment uses', async () 
   assert.ok(refusedAt > 0 && refusedAt <= 13,
     `the default limiter must throttle a burst (refused at ${refusedAt || 'never'})`);
   handler.defaultLimiter.reset();
+});
+
+// ==========================================================================
+//  the walk: two hops over the site's own graphs (plan §3, A.8)
+// ==========================================================================
+
+/* These tests read the REAL data — data/graph/** and search/** — because the
+   whole point of server-side resolution is that an id the model returns is
+   checked against what actually ships. js/search.js is imported to build the
+   very rows the browser would build, so href byte-equality is asserted against
+   the client's own code rather than against a copy of its rules. */
+const search = require(path.join(ROOT, 'js', 'search.js'));
+const readJson = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
+
+const ESC_REPO = 'repo:esc';
+const ESC_URL = 'https://github.com/HippoCampusRobotics/esc';
+const AFRO_PAGE = 'page:#/setup/hippocampus-bringup/afro-esc';
+const AFRO_SYM = 'sym:esc:include/afro_esc.h:AfroESC';
+
+function ctxFor(candidateIds) {
+  return handler.createContext({ dataDir: DATA, siteDir: ROOT, candidateIds: candidateIds || [] });
+}
+function shardItems(file) {
+  return search.buildItems([readJson(path.join(ROOT, file))]);
+}
+let ALL_ITEMS = null;
+function siteItems() {
+  if (!ALL_ITEMS) {
+    const manifest = readJson(path.join(ROOT, 'search', 'manifest.json'));
+    ALL_ITEMS = search.buildItems(manifest.shards.map((s) => readJson(path.join(ROOT, s.file))));
+  }
+  return ALL_ITEMS;
+}
+function userMessage(sent) {
+  return sent.body.messages.find((m) => m.role === 'user').content;
+}
+function hanging(url, init) {
+  return new Promise((resolve, reject) => {
+    init.signal.addEventListener('abort', () => {
+      const e = new Error('aborted'); e.name = 'AbortError'; reject(e);
+    });
+  });
+}
+
+test('the two-hop walk resolves a sym row byte-identically to the client AfroESC row', async () => {
+  const fetchStub = providerStub([
+    { hits: [ESC_REPO, AFRO_PAGE], open: ['esc'] },
+    { hits: [ESC_REPO, AFRO_PAGE, AFRO_SYM, 'repo:tgy'] },
+  ]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  assert.equal(fetchStub.calls.length, 2);
+  assert.equal(r.json.calls, 2);
+  assert.equal(r.json.hops, 2);
+  assert.equal(r.json.partial, false);
+  assert.equal(r.json.results.length, 4);
+  assert.equal(typeof r.json.ms, 'number');
+
+  const client = shardItems('search/code-esc.json').find((i) => i.title === 'AfroESC');
+  const sym = r.json.results.find((x) => x.title === 'AfroESC');
+  assert.ok(sym, 'the sym id resolved');
+  assert.equal(sym.href, client.href, 'byte-equal href with what js/search.js builds');
+  assert.equal(sym.id, `${client.kind}:${client.href}`, 'byte-equal id, the <kind>:<href> scheme');
+  assert.equal(sym.where, client.where);
+  assert.equal(sym.snippet, client.snippet);
+  assert.equal(r.json.results[0].href, ESC_URL, 'the repository row leads');
+  assert.equal(r.json.results[1].href, '#/setup/hippocampus-bringup/afro-esc');
+});
+
+test('hop 1 answering open: [] costs exactly one call and reports hops 1', async () => {
+  const fetchStub = providerStub([{ hits: [ESC_REPO], open: [] }]);
+  const r = await call('POST', { q: 'esc i2c driver', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  assert.equal(fetchStub.calls.length, 1, 'nothing to open means nothing to walk');
+  assert.equal(r.json.calls, 1);
+  assert.equal(r.json.hops, 1);
+  assert.equal(r.json.partial, false);
+  assert.equal(r.json.results.length, 1);
+});
+
+test('a hop 2 that fails 503 then 503 still answers 200 with partial: true after 3 calls', async () => {
+  const fetchStub = providerStub([
+    { hits: [ESC_REPO, AFRO_PAGE], open: ['esc'] },
+    { status: 503, text: 'nvidia is down' },
+  ]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  assert.equal(r.json.calls, 3, 'hop 1 once, hop 2 on both entries');
+  assert.equal(fetchStub.calls.length, 3);
+  assert.equal(r.json.hops, 2);
+  assert.equal(r.json.partial, true, 'the survey answered, the walk did not');
+  assert.deepEqual(r.json.results.map((x) => x.href), [ESC_URL, '#/setup/hippocampus-bringup/afro-esc']);
+});
+
+test('nano takes hop 1 and super takes hop 2 in three calls — the stub throws on call 4', async () => {
+  let extra = false;
+  const fetchStub = providerStub([
+    { status: 503, text: 'super is down' },
+    { hits: [ESC_REPO, AFRO_PAGE], open: ['esc'] },
+    { hits: [AFRO_SYM, ESC_REPO] },
+    (n) => { extra = true; throw new Error(`there must never be a call ${n}`); },
+  ]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  assert.equal(extra, false, 'a fourth model call was made');
+  assert.equal(fetchStub.calls.length, 3);
+  assert.equal(r.json.calls, 3);
+  assert.equal(r.json.hops, 2);
+  assert.equal(r.json.partial, false);
+  assert.equal(r.json.provider, 'nemotron', 'provider names whoever answered the LAST hop');
+});
+
+test('the 3-call cap skips the hop-2 fallback rather than spending a fourth call', async () => {
+  let extra = false;
+  const fetchStub = providerStub([
+    { status: 503, text: 'super is down' },              // hop 1, call 1
+    { hits: [ESC_REPO, AFRO_PAGE], open: ['esc'] },      // hop 1, call 2 (nano)
+    { status: 503, text: 'super is down again' },        // hop 2, call 3
+    (n) => { extra = true; throw new Error(`MAX_MODEL_CALLS is 3, not ${n}`); },
+  ]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  assert.equal(extra, false, 'the hop-2 fallback must be skipped, not spent');
+  assert.equal(r.json.calls, 3);
+  assert.equal(r.json.hops, 2, 'hop 2 was attempted, and failed');
+  assert.equal(r.json.partial, true);
+  assert.equal(r.json.provider, 'nano', 'the last hop that answered was hop 1, on nano');
+  assert.equal(r.json.results.length, 2);
+});
+
+test('all-429 failures report exhausted; a 429/503 mix does not', async () => {
+  const all429 = providerStub([{ status: 429, text: 'rate limit exceeded' }]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: all429 });
+  assert.equal(r.code, 502);
+  assert.equal(r.json.exhausted, true, 'every failure was an upstream 429');
+  assert.deepEqual(r.json.providers.map((p) => p.hop), [1, 1]);
+  const mixed = providerStub([{ status: 429, text: 'rate limit exceeded' }, { status: 503, text: 'down' }]);
+  const r2 = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: mixed });
+  assert.equal(r2.code, 502);
+  assert.equal(r2.json.exhausted, false, 'one non-quota failure and it is not a quota problem');
+});
+
+test('an open list naming the fork tgy, an unknown repo or five repos is filtered and capped', async () => {
+  const fetchStub = providerStub([
+    {
+      hits: [ESC_REPO, 'hallucinated:id', 'page:#/no/such/page'],
+      open: ['tgy', 'definitely_not_a_repo', 'esc', 'hippo_control', 'uvms', 'control', 'camera'],
+    },
+    { hits: [ESC_REPO, 'also:hallucinated'] },
+  ]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  const hop2 = JSON.parse(userMessage(fetchStub.calls[1]));
+  assert.deepEqual(hop2.repos.map((x) => x.name), ['esc', 'hippo_control', 'uvms'],
+    'forks and unknown names dropped, the model order kept, capped at 3');
+  assert.equal(r.json.results.length, 1, 'the hallucinated ids never became rows');
+  assert.equal(r.json.results[0].href, ESC_URL);
+  for (const row of r.json.results) {
+    assert.ok(/^(#\/|https:\/\/github\.com\/)/.test(row.href), 'every row has a resolvable href');
+  }
+});
+
+test('the hop-2 user message stays under 30000 chars with three real repos opened', async () => {
+  const fetchStub = providerStub([
+    { hits: [ESC_REPO, AFRO_PAGE], open: ['hippo_control', 'esc', 'uvms'] },
+    { hits: [ESC_REPO] },
+  ]);
+  const r = await call('POST', { q: 'ESC I2C firmware control', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  const message = userMessage(fetchStub.calls[1]);
+  assert.ok(message.length <= 30000, `hop-2 user message is ${message.length} chars`);
+  const doc = JSON.parse(message);
+  assert.equal(doc.repos.length, 3);
+  for (const repo of doc.repos) {
+    assert.ok(repo.files.length <= 80, `${repo.name}: file list capped`);
+    assert.ok(repo.matches.length <= 40, `${repo.name}: query-matching symbols capped`);
+  }
+  assert.ok(doc.neighbours.length <= 20);
+});
+
+test('resolution units: mount_2835 byte-equality, the sym file fallback, and dropped ids', () => {
+  const ctx = ctxFor(['page:#/mine']);
+  const cadRow = handler.resolveHits([{ id: 'cad:motor/propdrive_2835/mount_2835.ipt', why: 'a motor mount' }], ctx)[0];
+  const clientCad = shardItems('search/cad.json').find((i) => i.title === 'mount_2835');
+  assert.equal(cadRow.href, clientCad.href);
+  assert.equal(cadRow.id, `cad:${clientCad.href}`);
+  assert.equal(cadRow.title, clientCad.title);
+  assert.equal(cadRow.where, clientCad.where);
+  assert.equal(cadRow.snippet, clientCad.snippet);
+
+  // an unknown label on a known path falls back to that path's file entry
+  const fallback = handler.resolveHits([{ id: 'sym:esc:include/afro_esc.h:NoSuchSymbol', why: 'w' }], ctx)[0];
+  const clientFile = shardItems('search/code-esc.json')
+    .find((i) => i.kind === 'file' && i.path === 'include/afro_esc.h');
+  assert.equal(fallback.href, clientFile.href, 'file fallback keeps the client href');
+  assert.equal(fallback.title, clientFile.title);
+  assert.equal(fallback.kind, 'file');
+
+  // an unknown path is dropped outright; so is an unknown route
+  assert.deepEqual(handler.resolveHits([{ id: 'sym:esc:no/such/file.h:X', why: 'w' }], ctx), []);
+  assert.deepEqual(handler.resolveHits([{ id: 'file:esc:no/such/file.h', why: 'w' }], ctx), []);
+  assert.deepEqual(handler.resolveHits([{ id: 'page:#/no/such/route', why: 'w' }], ctx), []);
+  assert.deepEqual(handler.resolveHits([{ id: 'repo:no_such_repo', why: 'w' }], ctx), []);
+  // a path outside the shards cannot be walked into by an id
+  assert.deepEqual(handler.resolveHits([{ id: 'sym:../../etc:passwd:x', why: 'w' }], ctx), []);
+
+  // an id the client already owns comes back as {id, why} and nothing else
+  const mine = handler.resolveHits([{ id: 'page:#/mine', why: 'the client owns this row' }], ctx);
+  assert.deepEqual(Object.keys(mine[0]).sort(), ['id', 'why']);
+  assert.equal(mine[0].why, 'the client owns this row');
+});
+
+test('walk: true rides on candidates: [], and walk: false ignores an open list', async () => {
+  const empty = providerStub([{ hits: [ESC_REPO], open: [] }]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] }, { env: KEYS, fetch: empty });
+  assert.equal(r.code, 200, 'an empty candidate list is a real search, not a malformed request');
+  assert.equal(JSON.parse(userMessage(empty.calls[0])).walk, true);
+
+  const three = providerStub([{ hits: [candidates(3)[0].id], open: ['esc'] }]);
+  const r2 = await call('POST', { q: 'thruster model', candidates: candidates(3) },
+    { env: KEYS, fetch: three });
+  assert.equal(r2.code, 200);
+  assert.equal(JSON.parse(userMessage(three.calls[0])).walk, false,
+    'three keyword hits is a strong keyword answer — one call, as before');
+  assert.equal(three.calls.length, 1, 'the open list is ignored when walk was false');
+  assert.equal(r2.json.hops, 1);
+  assert.equal(r2.json.partial, false);
+
+  // the 4xx cases are unchanged: a missing or non-array candidates is still 400
+  for (const body of [{ q: 'two words' }, { q: 'two words', candidates: 'nope' }, { q: '  ', candidates: [] }]) {
+    const bad = await call('POST', body, { env: KEYS });
+    assert.equal(bad.code, 400, `${JSON.stringify(body)} is still a 400`);
+  }
+});
+
+test('orderPicks moves graph rows behind the first candidate the model kept', async () => {
+  const five = candidates(5);
+  const fetchStub = providerStub([{ hits: [ESC_REPO, five[2].id, AFRO_PAGE, five[0].id], open: [] }]);
+  const r = await call('POST', { q: 'thruster model', candidates: five }, { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  assert.deepEqual(r.json.results.map((x) => x.id),
+    [five[2].id, `repo:${ESC_URL}`, AFRO_PAGE, five[0].id],
+    'a kept keyword hit always leads the graph rows');
+
+  // with no kept candidate the model's own order is untouched
+  const none = providerStub([{ hits: [ESC_REPO, AFRO_PAGE], open: [] }]);
+  const r2 = await call('POST', { q: 'thruster model', candidates: five }, { env: KEYS, fetch: none });
+  assert.deepEqual(r2.json.results.map((x) => x.href),
+    [ESC_URL, '#/setup/hippocampus-bringup/afro-esc']);
+});
+
+test('hop 2 inherits what the clock left — armed at 6100ms — and MIN_HOP_MS skips it', async () => {
+  // (a) hop 1 answers at t = 6900, so hop 2 gets 13000 - 6900 = 6100ms, not the
+  // 8000ms ceiling, and the abort there is reported as `timed out after 6100ms`.
+  let t = 0;
+  const now = () => t;
+  const timers = [];
+  const realSetTimeout = global.setTimeout;
+  global.setTimeout = (fn, ms, ...a) => { timers.push(ms); return realSetTimeout(fn, 0, ...a); };
+  let out = null;
+  try {
+    let n = 0;
+    const doFetch = async (url, init) => {
+      n += 1;
+      if (n === 1) { t = 6900; return modelReply(hopDoc({ hits: [ESC_REPO, AFRO_PAGE], open: ['esc'] })); }
+      return hanging(url, init);
+    };
+    const cfgs = handler.PROVIDERS.map((p) => handler.providerConfig(p, KEYS));
+    out = await handler.runSearch({ q: 'ESC I2C firmware', candidates: [], pinned: null },
+      ctxFor([]), cfgs, doFetch, now);
+  } finally {
+    global.setTimeout = realSetTimeout;
+  }
+  assert.equal(out.ok, true);
+  assert.equal(out.hops, 2);
+  assert.equal(out.partial, true);
+  assert.ok(timers.includes(6100), `hop 2 was armed at 6100ms; saw ${timers.join(', ')}`);
+  assert.equal(out.failures[0].hop, 2);
+  assert.equal(out.failures[0].reason, 'timed out after 6100ms');
+  assert.equal(out.failures[1].reason, 'timed out after 5000ms', 'the fallback keeps its own ceiling');
+  assert.ok(out.ms <= handler.SEARCH_BUDGET_MS, 'the simulated wall stayed inside the budget');
+
+  // (b) MIN_HOP_MS: hop 1 answers at t = 11000, leaving 2000ms — less than the
+  // 2500ms a hop is allowed to start on, so hop 2 is skipped rather than begun.
+  let t2 = 0;
+  let n2 = 0;
+  const doFetch2 = async () => {
+    n2 += 1;
+    t2 = 11000;
+    return modelReply(hopDoc({ hits: [ESC_REPO, AFRO_PAGE], open: ['esc'] }));
+  };
+  const cfgs2 = handler.PROVIDERS.map((p) => handler.providerConfig(p, KEYS));
+  const out2 = await handler.runSearch({ q: 'ESC I2C firmware', candidates: [], pinned: null },
+    ctxFor([]), cfgs2, doFetch2, () => t2);
+  assert.equal(out2.ok, true);
+  assert.equal(n2, 1, 'a hop is never started with less than MIN_HOP_MS left');
+  assert.equal(out2.calls, 1);
+  assert.equal(out2.hops, 1);
+  assert.equal(out2.partial, true, 'budget starvation is visible, not silent');
+  assert.ok(out2.ms <= handler.SEARCH_BUDGET_MS);
+  assert.equal(handler.MIN_HOP_MS, 2500);
+});
+
+test('neighbours reach hop 2 in catalog id space over in- AND out-edges', async () => {
+  // The afro-esc page has ZERO out-edges: its only graph link is the IN-edge
+  // from the hardware hub. A directed walk would hand hop 2 an empty
+  // neighbourhood for exactly the headline query, so the union is walked.
+  const fetchStub = providerStub([
+    { hits: [AFRO_PAGE, ESC_REPO], open: ['esc'] },
+    { hits: [ESC_REPO] },
+  ]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  const hop2 = JSON.parse(userMessage(fetchStub.calls[1]));
+  const ids = hop2.neighbours.map((x) => x.id);
+  assert.ok(ids.includes('page:#/setup/hardware/hippocampus'),
+    `the IN-edge neighbour is missing from ${JSON.stringify(ids)}`);
+  for (const n of hop2.neighbours) {
+    assert.ok(/^(page|repo|cad):/.test(n.id), `${n.id} is a catalog id`);
+    assert.equal(typeof n.title, 'string');
+    assert.equal(typeof n.why, 'string');
+  }
+});
+
+test('CATALOG_MAX_CHARS bounds the catalog and the real "install ros" hop-1 message fits 48000', async () => {
+  assert.equal(handler.CATALOG_MAX_CHARS, 45000);
+  const catalog = handler.buildCatalog(DATA);
+  const chars = JSON.stringify(catalog).length;
+  assert.ok(chars <= handler.CATALOG_MAX_CHARS,
+    `catalog is ${chars} chars, over CATALOG_MAX_CHARS ${handler.CATALOG_MAX_CHARS}`);
+
+  // the real client candidate list, built by the client's own engine
+  const local = search.searchItems(siteItems(), 'install ros');
+  const cands = search.projectCandidates(local.results);
+  assert.ok(cands.length > 0, 'the probe still has local hits');
+  const fetchStub = providerStub([{ hits: [cands[0].id], open: [] }]);
+  const r = await call('POST', { q: 'install ros', candidates: cands }, { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  const message = userMessage(fetchStub.calls[0]);
+  assert.equal(handler.HOP1_MESSAGE_MAX_CHARS, 48000);
+  assert.ok(message.length <= 48000, `hop-1 user message is ${message.length} chars`);
+  assert.ok(r.json.promptChars >= message.length, 'promptChars sums what was actually sent');
+
+  // hops reports 1 when a non-empty open was skipped by the clock
+  let t = 0;
+  const skipped = providerStub([(n) => {
+    t = 11000;
+    return modelReply(hopDoc({ hits: [ESC_REPO, AFRO_PAGE], open: ['esc'] }));
+  }]);
+  const r2 = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: skipped, now: () => t });
+  assert.equal(r2.code, 200);
+  assert.equal(r2.json.hops, 1, 'a hop that never started was never attempted');
+  assert.equal(r2.json.calls, 1);
+  assert.equal(r2.json.partial, true);
+});
+
+test('hop 2 cannot erase hop 1: hits: [] keeps both headline rows, a sym-only answer leads', async () => {
+  const emptyWalk = providerStub([
+    { hits: [ESC_REPO, AFRO_PAGE], open: ['esc'] },
+    { hits: [] },
+  ]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: emptyWalk });
+  assert.equal(r.code, 200);
+  assert.equal(r.json.calls, 2, 'an empty walk is a hop-level failure, not a provider failure');
+  assert.equal(r.json.hops, 2);
+  assert.equal(r.json.partial, true);
+  assert.deepEqual(r.json.results.map((x) => x.href),
+    [ESC_URL, '#/setup/hippocampus-bringup/afro-esc']);
+
+  const symOnly = providerStub([
+    { hits: [ESC_REPO, AFRO_PAGE], open: ['esc'] },
+    { hits: [AFRO_SYM] },
+  ]);
+  const r2 = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: symOnly });
+  assert.equal(r2.code, 200);
+  assert.equal(r2.json.partial, false);
+  assert.equal(r2.json.results.length, 3, 'additive and re-ordering, never subtractive');
+  assert.equal(r2.json.results[0].title, 'AfroESC', 'the walk leads');
+  assert.deepEqual(r2.json.results.slice(1).map((x) => x.href),
+    [ESC_URL, '#/setup/hippocampus-bringup/afro-esc']);
+});
+
+test('probe-string: every probe string resolves to a byte-equal href', () => {
+  /* The done bar is stated as literal strings a browser must show. Each one is
+     derived back to the catalog id the model would answer with, and the row the
+     function builds for that id must carry EXACTLY that href — no trailing
+     slash, no re-encoding, no anchor. */
+  const ctx = ctxFor([]);
+  const CASES = [
+    ['repo:esc', 'https://github.com/HippoCampusRobotics/esc'],
+    ['page:#/setup/hippocampus-bringup/afro-esc', '#/setup/hippocampus-bringup/afro-esc'],
+    ['repo:tgy', 'https://github.com/HippoCampusRobotics/tgy'],
+    ['cad:motor/propdrive_2835/mount_2835.ipt',
+      'https://github.com/FinnBreu/hippocampus-cad/blob/main/motor/propdrive_2835/mount_2835.ipt'],
+    ['page:#/setup/hippocampus-bringup/motor-configuration', '#/setup/hippocampus-bringup/motor-configuration'],
+  ];
+  for (const [id, href] of CASES) {
+    const rows = handler.resolveHits([{ id, why: 'probe' }], ctx);
+    assert.equal(rows.length, 1, `${id} must resolve against real data`);
+    assert.equal(rows[0].href, href, `${id} must resolve byte-equal`);
+  }
+
+  // Forward-compatible: the same check over every semantic probe on disk, so
+  // the two Kyle added cannot ship pointing at something that will not resolve.
+  const probes = readJson(path.join(ROOT, 'data', 'search-probes.json')).probes || [];
+  const semantic = probes.filter((p) => p && p.kind === 'semantic');
+  for (const probe of semantic) {
+    const strings = [].concat(probe.expect || [], probe.fair || []);
+    assert.ok(strings.length, `${probe.q} needs at least one expected string`);
+    for (const href of strings) {
+      const id = catalogIdForHref(href);
+      const rows = handler.resolveHits([{ id, why: 'probe' }], ctx);
+      assert.equal(rows.length, 1, `${probe.q}: ${href} → ${id} must resolve`);
+      assert.equal(rows[0].href, href, `${probe.q}: ${id} must resolve byte-equal to ${href}`);
+    }
+  }
+});
+
+/* `#/…` is a page route; a bare github.com/<org>/<repo> is a repository; a blob
+   URL under the CAD repository is a CAD part path. */
+function catalogIdForHref(href) {
+  if (href.startsWith('#/')) return `page:${href}`;
+  const blob = /^https:\/\/github\.com\/[^/]+\/[^/]+\/blob\/main\/(.+)$/.exec(href);
+  if (blob) return `cad:${blob[1].split('/').map(decodeURIComponent).join('/')}`;
+  const repo = /^https:\/\/github\.com\/[^/]+\/([^/]+)$/.exec(href);
+  if (repo) return `repo:${repo[1]}`;
+  assert.fail(`no catalog id shape for ${href}`);
+  return null;
+}
+
+test('a repaired document whose hits array is empty is a parse failure, not an empty answer', () => {
+  /* Found by codex on the base commit: the closer repair turned a truncated
+     `{"hits":[` into an ACCEPTED empty array. That reads as a confident
+     "nothing matches", suppresses the fallback and spends the answer on a
+     truncation. A repair may now only rescue a document that already carries
+     at least one complete row. */
+  assert.equal(handler.parseModelJson('{"hits":['), null);
+  assert.equal(handler.parseModelJson('{"hits":[{'), null);
+  assert.deepEqual(handler.parseModelJson('{"hits":[{"id":"repo:esc","why":"x"}').hits.map((h) => h.id),
+    ['repo:esc'], 'a repair that rescues a real row is still a repair');
+  // an un-repaired, genuinely well-formed empty answer is still a valid answer
+  assert.deepEqual(handler.parseModelJson('{"hits":[]}').hits, []);
+
+  // end to end: the truncation now falls through to the other entry
+  const fetchStub = providerStub(['{"hits":[', { hits: [ESC_REPO], open: [] }]);
+  return call('POST', { q: 'ESC I2C firmware', candidates: [] }, { env: KEYS, fetch: fetchStub })
+    .then((r) => {
+      assert.equal(r.code, 200);
+      assert.equal(r.json.provider, 'nano', 'the truncated empty answer did not win');
+      assert.equal(fetchStub.calls.length, 2);
+    });
+});
+
+test('every response carries x-librarian-version: 2 — the zero-quota readiness probe', async () => {
+  const r405 = await call('GET', undefined, { env: KEYS });
+  assert.equal(r405.code, 405);
+  assert.equal(r405.headers['x-librarian-version'], '2',
+    'the pre-body 405 is what tells a deploy check which handler is live');
+  const ok = await call('POST', ASK, { env: KEYS, fetch: providerStub([[ASK.candidates[0].id]]) });
+  assert.equal(ok.code, 200);
+  assert.equal(ok.headers['x-librarian-version'], '2');
+  const r403 = await call('POST', ASK, { env: KEYS }, false,
+    { headers: { origin: 'https://evil.example', host: 'docs.example.org' } });
+  assert.equal(r403.headers['x-librarian-version'], '2');
 });

@@ -4,7 +4,7 @@
   "outputDirectory": ".",
   "functions": {
     "api/librarian.js": {
-      "includeFiles": "data/graph/**",
+      "includeFiles": "{data/graph,search}/**",
       "maxDuration": 15
     }
   },
