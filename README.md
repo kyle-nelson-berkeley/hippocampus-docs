@@ -68,8 +68,10 @@ manifest entry, and reference the manifest URL from the page. Still local by des
 
 **Live (staging): <https://kyle-nelson-berkeley.github.io/hippocampus-docs/>** —
 published 2026-08-28 with Kyle's approval; `noindex` while staging. Search runs on the
-committed precomputed index (`search/`, 75 shards, 0.41 MB; 10/10 acceptance probes at
-rank 1 on the live URL — `data/search-probes.json`). Agent editing goes through the
+committed precomputed index (`search/`, 75 shards, 0.42 MB; 10/10 keyword probes at rank 1
+on the live URL — `data/search-probes.json`), and on the Vercel host multi-word queries are
+also answered by the librarian (`api/librarian.js`), a free model walking the site's own
+knowledge graph, which degrades to the keyword answer when it is unreachable. Agent editing goes through the
 private onboarding repo's `hippo-site` MCP server
 (github.com/kyle-nelson-berkeley/hippocampus-team-onboarding, private). The org
 cut-over (pointing the team at this URL) remains a team decision.

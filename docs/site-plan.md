@@ -163,6 +163,41 @@ fork at the identical HEAD `68fc2ad`, zero divergence — verified 2026-08-28).
 | 9 | `qualisys` | Project page "Lab & tank infrastructure" (or its qualisys_bridge entry) |
 | 10 | `runpod` | Tools page for runpod-mcp |
 
+### Search phase 3 — the librarian walks the graph (2026-09-05)
+
+The keyword index above still answers single words and exact symbol names on its own, with
+zero network. Every multi-word query is also sent to the librarian, a Vercel function
+(`api/librarian.js`) that walks the site's own knowledge graph (`data/graph/`) in at most two
+model calls (three counting one fallback call):
+
+- **Hop 1 — survey.** The model sees the query, the keyword hits (may be empty) and a ~43 KB
+  catalog with an id per entry: every page (`page:<route>`), every repository (`repo:<name>`,
+  with project, fork flag and up to 6 main symbols) and every CAD part (`cad:<path>`). It
+  returns direct hits with a one-line `why` each and, only when the keyword list is short
+  (fewer than 3 hits — the case keyword search failed on), up to 3 repositories worth opening.
+- **Hop 2 — walk.** Only when hop 1 opened repositories: the model sees each opened repo's
+  condensed graphify shard (description, main symbols with paths, communities), its file list
+  and the index symbols sharing a query token, plus the wiki-graph neighbours of the hop-1 hits
+  (in and out edges). It returns the final ranking, which may add `sym:` and `file:` ids.
+- **Resolution.** Every id is checked against real site data and turned into a row
+  byte-identical to the client's own index row (pages → route, repos → GitHub URL, symbols and
+  CAD → GitHub blob URL); unknown ids are dropped; at most 8 rows. A keyword hit the model kept
+  always leads the graph rows, and the browser pins a local leader whose title covers every
+  query word to position 1.
+- **Budget.** 13 s of search time inside the function's 15 s `maxDuration`; at most 3 calls;
+  each call clamped to the time left and never started with under 2.5 s remaining. Models are
+  free `:free` OpenRouter entries only (NVIDIA Nemotron super primary, Nemotron nano fallback),
+  never Llama; the account buys no credit, so the free tier's 50 requests per day is the real
+  cap — roughly 16 graph searches a day before the keyword answer takes over.
+- **Degradation.** A failed hop 2 returns the hop-1 rows (`partial: true`); a failed hop 1
+  returns 502 and the browser shows the keyword answer with a notice; when every failure is an
+  upstream 429 the response says `exhausted: true` and the notice says the daily free requests
+  are spent. A repeated query in the same session is answered from memory, never re-sent.
+- **Probes.** The two motivating queries ("ESC I2C firmware", "motor mount CAD") are
+  `kind: "semantic"` entries in `data/search-probes.json` (expected targets in the top 3);
+  `tools/bench_librarian.mjs --probes` measures all twelve against a base URL, and
+  `tools/dev_site.mjs --mock-provider=graph|quota` exercises the plumbing without spending quota.
+
 ## 6. Conventions (grounded in the "Documenting Robotics Projects" notebook, queried 2026-08-28)
 
 - **Docs-as-code**: prose in Markdown, in git, PR-reviewed; no external wiki.

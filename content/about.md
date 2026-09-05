@@ -20,9 +20,13 @@ documentation for the lab's agent tools.
 - **Images from a CDN.** Images are served from Cloudinary; the mapping (and the upload
   sources kept under `assets/`) lives in `data/cloudinary-manifest.json`.
 - **Preview** with `./tools/serve.sh` and open <http://localhost:8130/>.
-- **Search** is a precomputed, static index shipped with the site — no server, no API keys.
-  Code symbols come from AST extraction over the org's repositories; CAD parts from the
-  canonical CAD repo's file tree.
+- **Search** starts from a precomputed, static index shipped with the site — the keyword
+  search needs no server and no API keys. Code symbols come from AST extraction over the
+  org's repositories; CAD parts from the canonical CAD repo's file tree. On the Vercel host,
+  multi-word queries are also answered by the librarian: a free model that walks the site's
+  own knowledge graph and adds the pages, repositories, code symbols and CAD parts the
+  keywords missed, each with a one-line reason. When it is unreachable or out of free
+  requests for the day, the keyword answer stands.
 
 ## People
 
