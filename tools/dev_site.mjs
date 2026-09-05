@@ -7,9 +7,22 @@
      node tools/dev_site.mjs --port 8140
      node tools/dev_site.mjs --mock-provider=echo   # a fake LLM that echoes candidates
      node tools/dev_site.mjs --mock-provider=adversarial
+     node tools/dev_site.mjs --mock-provider=graph  # the walk, keyless and deterministic
+     node tools/dev_site.mjs --mock-provider=quota  # every call 429s (the exhausted drill)
+     node tools/dev_site.mjs --mock-provider=graph --mock-delay=800
 
    tools/serve.sh (port 8130, plain python http.server) is untouched and stays
    the documented static preview. This is its function-aware sibling on 8131.
+
+   WHAT THE MOCKS ARE FOR, AND WHAT THEY ARE NOT. `graph` answers both hops of
+   the real two-hop contract by TOKEN OVERLAP — it reads the hop-1 catalog and
+   the hop-2 repository briefs the handler actually built and picks ids whose
+   title, one-liner or id shares a word with the query. That proves the
+   PLUMBING end to end with zero quota: ids, server-side resolution, the
+   ordering rule, the client merge, the render, the waiting and notice states.
+   It proves NOTHING about ranking quality, and no report may present it as
+   evidence of any. Every `why` it emits is the literal string `mock provider`,
+   so a real answer can never be mistaken for one of its own.
 
    Two rules keep this honest:
 
@@ -31,7 +44,11 @@ const ROOT = path.resolve(new URL('..', import.meta.url).pathname);
 const DEFAULT_PORT = 8131;
 const LIBRARIAN_ROUTE = '/api/librarian';
 const MOCK_ROUTE = '/__mock/v1/chat/completions';
-const MOCK_MODES = ['echo', 'adversarial'];
+const MOCK_MODES = ['echo', 'adversarial', 'graph', 'quota'];
+const MAX_HITS = 8;         // the handler's MAX_PICKS; it caps anyway, we stay inside it
+const MAX_OPEN = 3;         // the handler's MAX_OPEN_REPOS
+const MAX_HOP2_SYMS = 2;    // "at most 2 code-level hits per repository" (the hop-2 prompt)
+const MOCK_WHY = 'mock provider';
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -56,8 +73,15 @@ const TYPES = {
 
 // ------------------------------------------------------------------- args ---
 
+const USAGE = 'usage: node tools/dev_site.mjs [--port N] '
+  + `[--mock-provider=${MOCK_MODES.join('|')}] [--mock-delay=<ms>]\n`
+  + '  --mock-provider  echo/adversarial re-rank the candidates; graph answers both hops\n'
+  + '                   of the walk by token overlap; quota 429s every call.\n'
+  + '  --mock-delay     milliseconds the mock waits before answering EACH call (default 0).\n'
+  + '                   It only means something with a mock, so it is refused without one.\n';
+
 function parseArgs(argv) {
-  const out = { port: DEFAULT_PORT, mock: null };
+  const out = { port: DEFAULT_PORT, mock: null, mockDelay: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--help' || arg === '-h') { out.help = true; continue; }
@@ -80,17 +104,39 @@ function parseArgs(argv) {
       out.mock = value;
       continue;
     }
+    m = arg.match(/^--mock-delay(?:=(.*))?$/);
+    if (m) {
+      const value = m[1] !== undefined ? m[1] : argv[++i];
+      const ms = Number(value);
+      if (!Number.isFinite(ms) || ms < 0) {
+        throw new Error(`--mock-delay must be a non-negative number of milliseconds, got ${JSON.stringify(value)}`);
+      }
+      out.mockDelay = ms;
+      continue;
+    }
     throw new Error(`unknown argument ${JSON.stringify(arg)}`);
+  }
+  // A delay with nothing to delay is a typo, not a slow real provider: this
+  // server never sits between the handler and OpenRouter, so the flag can only
+  // ever slow the mock down. Refusing it loudly beats pretending it worked.
+  if (out.mockDelay !== null && !out.mock) {
+    throw new Error('--mock-delay needs --mock-provider: there is nothing to delay without a mock');
   }
   return out;
 }
 
-const args = parseArgs(process.argv.slice(2));
+let args;
+try {
+  args = parseArgs(process.argv.slice(2));
+} catch (e) {
+  process.stderr.write(`${e.message}\n${USAGE}`);
+  process.exit(1);
+}
 if (args.help) {
-  process.stdout.write(
-    'usage: node tools/dev_site.mjs [--port N] [--mock-provider=echo|adversarial]\n');
+  process.stdout.write(USAGE);
   process.exit(0);
 }
+const MOCK_DELAY_MS = args.mockDelay || 0;
 
 // -------------------------------------------------------------- json reply ---
 
@@ -116,31 +162,132 @@ function readBody(req) {
 // ------------------------------------------------------- the provider mock ---
 
 /* An OpenAI-compatible chat-completions endpoint hosted by this same server.
-   It reads the candidate ids straight out of the prompt the real handler built,
-   so the handler runs completely unmodified against it. */
+   It reads the payload the real handler built — the hop-1 catalog, the hop-2
+   repository briefs — so the handler runs completely unmodified against it. */
 let mockCalls = 0;
 
-function candidateIdsFromRequest(payload) {
+/* The last user message is the JSON payload the handler serialised. Hop 1 and
+   hop 2 are told apart by their KEYS rather than by the system prompt's
+   wording: `catalog` only ever appears in hop 1 and `repos`/`neighbours` only
+   in hop 2, so a re-worded prompt cannot silently send both hops down the same
+   branch. */
+function askPayload(payload) {
   const messages = (payload && Array.isArray(payload.messages)) ? payload.messages : [];
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const m = messages[i];
     if (!m || m.role !== 'user') continue;
     try {
       const doc = JSON.parse(m.content);
-      if (doc && Array.isArray(doc.candidates)) {
-        return doc.candidates.map((c) => c && c.id).filter((id) => typeof id === 'string');
-      }
+      if (doc && typeof doc === 'object') return doc;
     } catch (e) { /* not the JSON payload message */ }
   }
-  return [];
+  return null;
 }
 
-function mockCompletion(ids) {
-  const content = JSON.stringify({
-    results: ids.slice(0, 8).map((id) => ({ id, why: 'mock provider' })),
+function hopOf(doc) {
+  if (!doc) return 0;
+  if (Array.isArray(doc.catalog)) return 1;
+  if (Array.isArray(doc.repos) || Array.isArray(doc.neighbours)) return 2;
+  return 0;
+}
+
+/* js/search.js's tokeniser, third copy (the client, the function, here). The
+   mock has to split words the way the engine does or "overlap" would mean
+   something different on each side of the wire. */
+function tokensOf(value) {
+  return String(value == null ? '' : value)
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/* How many DISTINCT query terms a piece of text covers, by whole token or by
+   token prefix — the same "is this word in there" test the engine uses. */
+function covers(text, terms) {
+  if (!terms.length) return 0;
+  const words = tokensOf(text);
+  if (!words.length) return 0;
+  let n = 0;
+  for (const t of terms) {
+    if (words.some((w) => w === t || w.startsWith(t))) n += 1;
+  }
+  return n;
+}
+
+/* HOP 1. Score every catalog row by how much of the query its title, its
+   one-liner and its own id cover, keep the rows that cover anything at all,
+   best first (ties keep catalog order — Array#sort is stable, so the answer is
+   the same on every run), and open the non-fork repositories among them.
+
+   `open` is sent whenever repositories are hit, INCLUDING when walk is false:
+   the handler is the thing that decides, and letting it drop the list exercises
+   that guard instead of hiding it. */
+function hop1Answer(doc) {
+  const terms = tokensOf(doc.query).slice(0, 8);
+  const rows = Array.isArray(doc.catalog) ? doc.catalog : [];
+  const scored = [];
+  rows.forEach((row) => {
+    if (!row || typeof row.id !== 'string') return;
+    const score = covers(`${row.title || ''} ${row.about || ''} ${row.id}`, terms);
+    if (score > 0) scored.push({ row, score });
   });
+  scored.sort((a, b) => b.score - a.score);
+  const hits = scored.slice(0, MAX_HITS).map((s) => ({ id: s.row.id, why: MOCK_WHY }));
+  const open = [];
+  for (const s of scored.slice(0, MAX_HITS)) {
+    if (open.length >= MAX_OPEN) break;
+    // `repo` is the catalog's non-fork kind; forks are kind `fork` and the
+    // handler refuses to open them anyway.
+    if (s.row.kind === 'repo' && s.row.id.startsWith('repo:')) open.push(s.row.id.slice(5));
+  }
+  return { hits, open };
+}
+
+/* HOP 2. Keep everything hop 1 found (the walk is additive, never subtractive)
+   and add at most two code-level ids for symbols whose LABEL shares a query
+   term — `matches` first, because the handler already filtered those by the
+   query, then the shard's god nodes. */
+function hop2Answer(doc) {
+  const terms = tokensOf(doc.query).slice(0, 8);
+  const repos = Array.isArray(doc.repos) ? doc.repos : [];
+  const syms = [];
+  const seen = new Set();
+  const add = (repo, label, filePath) => {
+    if (syms.length >= MAX_HOP2_SYMS) return;
+    if (!repo || !label || !filePath) return;
+    if (!covers(label, terms)) return;
+    const id = `sym:${repo}:${filePath}:${label}`;
+    if (seen.has(id)) return;
+    seen.add(id);
+    syms.push({ id, why: MOCK_WHY });
+  };
+  for (const repo of repos) {
+    if (!repo || typeof repo.name !== 'string') continue;
+    for (const m of (Array.isArray(repo.matches) ? repo.matches : [])) {
+      if (Array.isArray(m)) add(repo.name, String(m[0] || ''), String(m[1] || ''));
+    }
+  }
+  for (const repo of repos) {
+    if (!repo || typeof repo.name !== 'string') continue;
+    for (const g of (Array.isArray(repo.symbols) ? repo.symbols : [])) {
+      if (g && g.kind !== 'file') add(repo.name, String(g.name || ''), String(g.path || ''));
+    }
+  }
+  const kept = (Array.isArray(doc.hits) ? doc.hits : [])
+    .filter((h) => h && typeof h.id === 'string')
+    .slice(0, MAX_HITS - syms.length)
+    .map((h) => ({ id: h.id, why: MOCK_WHY }));
+  // Pages and repositories that answer directly stay ahead of the symbols
+  // inside them, exactly as the hop-2 prompt asks a real model to rank them.
+  return { hits: kept.concat(syms) };
+}
+
+function mockCompletion(answer) {
+  const content = JSON.stringify(answer);
   return {
-    id: `mock-${Date.now()}`,
+    // Counter, not a clock: two identical runs produce two identical bodies.
+    id: `mock-${mockCalls}`,
     object: 'chat.completion',
     model: 'mock/dev-site',
     choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],
@@ -148,25 +295,57 @@ function mockCompletion(ids) {
   };
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function serveMock(req, res, mode) {
   if (req.method !== 'POST') { sendJson(res, 405, { error: 'POST only' }); return; }
   mockCalls += 1;
+  // Read the body FIRST — the socket has to be drained whatever we answer — and
+  // only then spend the artificial latency, so --mock-delay measures the
+  // handler's own deadline arithmetic rather than the time it took to upload.
+  let payload = null;
+  try { payload = JSON.parse(await readBody(req)); } catch (e) { payload = null; }
+  if (MOCK_DELAY_MS) await sleep(MOCK_DELAY_MS);
+
+  // The exhausted drill. Both provider URLs point here, so both entries fail
+  // the same way and the handler's 502 carries exhausted: true — which is the
+  // only thing that makes the client show the quota notice rather than the
+  // "unreachable" one.
+  if (mode === 'quota') {
+    sendJson(res, 429, { error: {
+      message: `mock ${mode}: free daily allowance spent (call #${mockCalls})`,
+      type: 'rate_limit_exceeded', code: 429,
+    } });
+    return;
+  }
   // Deliberate fallback drill: every third call collapses, so the handler's
   // primary/fallback path and the client's notice both get exercised for real.
   if (mode === 'adversarial' && mockCalls % 3 === 0) {
     sendJson(res, 503, { error: { message: `mock ${mode}: scheduled failure #${mockCalls}` } });
     return;
   }
-  let payload = null;
-  try { payload = JSON.parse(await readBody(req)); } catch (e) { payload = null; }
-  const ids = candidateIdsFromRequest(payload);
+
+  if (mode === 'graph') {
+    const doc = askPayload(payload);
+    const hop = hopOf(doc);
+    if (hop === 1) { sendJson(res, 200, mockCompletion(hop1Answer(doc))); return; }
+    if (hop === 2) { sendJson(res, 200, mockCompletion(hop2Answer(doc))); return; }
+    // Neither shape: say so instead of answering something plausible.
+    sendJson(res, 400, { error: { message: 'mock graph: the payload is neither hop 1 nor hop 2' } });
+    return;
+  }
+
+  const doc = askPayload(payload);
+  const ids = (doc && Array.isArray(doc.candidates) ? doc.candidates : [])
+    .map((c) => c && c.id).filter((id) => typeof id === 'string');
+  const hits = (list) => ({ hits: list.slice(0, MAX_HITS).map((id) => ({ id, why: MOCK_WHY })), open: [] });
   if (mode === 'adversarial') {
     // reversed, and led by an id that was never on the candidate list — the
     // client and the handler must both drop it without flinching.
-    sendJson(res, 200, mockCompletion(['mock:not-a-real-candidate'].concat(ids.slice().reverse())));
+    sendJson(res, 200, mockCompletion(hits(['mock:not-a-real-candidate'].concat(ids.slice().reverse()))));
     return;
   }
-  sendJson(res, 200, mockCompletion(ids));   // echo: in the order received
+  sendJson(res, 200, mockCompletion(hits(ids)));   // echo: in the order received
 }
 
 // ------------------------------------------------------------ static files ---
@@ -209,9 +388,18 @@ function serveStatic(req, res, urlPath) {
 
 /* The mock has to be wired up BEFORE the handler is imported: the handler reads
    its base URL from the environment at request time, but pointing it at a
-   server that does not exist yet would be a race worth avoiding. */
+   server that does not exist yet would be a race worth avoiding.
+
+   BOTH entries are redirected, not just the primary. The handler tries every
+   provider in turn on a failing hop, so leaving the nano URL pointing at the
+   real gateway meant a keyless drill failed there with "no key is not set" —
+   which is NOT an upstream 429, so the 502's `exhausted` came back false and
+   the quota drill silently proved the wrong notice. With both mocked, a quota
+   run produces exactly two hop-1 failures, both HTTP 429, and exhausted: true. */
 if (args.mock) {
-  process.env.LIBRARIAN_NEMOTRON_URL = `http://127.0.0.1:${args.port}${MOCK_ROUTE}`;
+  const mockUrl = `http://127.0.0.1:${args.port}${MOCK_ROUTE}`;
+  process.env.LIBRARIAN_NEMOTRON_URL = mockUrl;
+  process.env.LIBRARIAN_NANO_URL = mockUrl;
   process.env.OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || 'dev-site-mock-not-a-real-key';
 }
 
@@ -232,10 +420,27 @@ try {
 
 // ------------------------------------------------------------- the server ----
 
+/* Access logging for the two API routes ONLY — never for static files, which
+   a single page load would drown this in. It exists so "how many searches did
+   that run make, and how many upstream calls did each one cost" is a fact in
+   the log rather than a number the bench reports about itself. */
+let librarianRequests = 0;
+
+function logWhenDone(res, line) {
+  res.on('finish', () => process.stdout.write(`  ${line()} ${res.statusCode}\n`));
+}
+
 const server = http.createServer((req, res) => {
   const urlPath = (req.url || '/').split('?')[0];
 
   if (urlPath === LIBRARIAN_ROUTE) {
+    // Only a POST is a SEARCH, so only a POST takes a number: the readiness
+    // GET reads no body, calls no model and must not inflate the count a run
+    // is measured by.
+    const n = req.method === 'POST' ? (librarianRequests += 1) : null;
+    const started = Date.now();
+    logWhenDone(res, () => `${req.method} ${LIBRARIAN_ROUTE}`
+      + `${n === null ? '' : ` #${n}`} ${Date.now() - started}ms →`);
     if (!librarian) {
       // Exactly what GitHub Pages does with a missing path — and exactly what
       // the client latches on.
@@ -254,6 +459,8 @@ const server = http.createServer((req, res) => {
   }
 
   if (args.mock && urlPath === MOCK_ROUTE) {
+    const n = mockCalls + 1;
+    logWhenDone(res, () => `    mock ${args.mock} call #${n} →`);
     serveMock(req, res, args.mock).catch((e) => {
       if (!res.headersSent) sendJson(res, 500, { error: String((e && e.message) || e) });
     });
@@ -270,8 +477,19 @@ server.listen(args.port, '127.0.0.1', () => {
   else process.stdout.write('  librarian handler absent — static only\n');
   if (handlerError) process.stdout.write(`  (import failed: ${handlerError})\n`);
   if (args.mock) {
-    process.stdout.write(`  mock provider: ${args.mock} (primary base URL points at ${MOCK_ROUTE})\n`);
+    process.stdout.write(
+      `  mock provider: ${args.mock} (BOTH provider base URLs point at ${MOCK_ROUTE})\n`);
+    process.stdout.write(MOCK_DELAY_MS
+      ? `  mock delay:    ${MOCK_DELAY_MS}ms before every mock answer\n`
+      : '  mock delay:    none\n');
+    if (args.mock === 'graph') {
+      process.stdout.write(
+        '  the graph mock proves PLUMBING only — its ranking is token overlap, not meaning\n');
+    }
   } else {
-    process.stdout.write('  mock provider: off (set --mock-provider=echo|adversarial)\n');
+    // The real-key gate greps for this exact phrase to prove no mock was in
+    // the loop, so the words "mock provider: off" stay where they are.
+    process.stdout.write(
+      `  mock provider: off (set --mock-provider=${MOCK_MODES.join('|')})\n`);
   }
 });
