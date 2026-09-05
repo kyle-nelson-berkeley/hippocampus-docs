@@ -29,8 +29,9 @@ const HC = require(SEARCH_JS);
 
 const {
   createLibrarian, projectCandidates, assignIds, mergePicks, classifyStatus,
-  buildItems, searchItems,
-  LIBRARIAN_URL, LIBRARIAN_NOTICE, LIBRARIAN_TIMEOUT_MS, CANDIDATE_LIMIT, PICK_LIMIT,
+  buildItems, searchItems, pickRows, strongLead,
+  LIBRARIAN_URL, LIBRARIAN_NOTICE, LIBRARIAN_QUOTA_NOTICE, LIBRARIAN_TIMEOUT_MS,
+  CANDIDATE_LIMIT, PICK_LIMIT,
 } = HC;
 
 // ---------------------------------------------------------------- fixtures --
@@ -94,6 +95,11 @@ function abortError() {
 function bodyOf(call) {
   return JSON.parse(call.init.body);
 }
+
+/* A picked local row renders as a shallow COPY carrying the librarian's `why`
+   line — the local list's own objects are never mutated, which is what lets
+   onLocal's paint and the final paint share the same array safely. */
+const withWhy = (row, why) => Object.assign({}, row, { why });
 
 // ------------------------------------------------------------- module shape -
 
@@ -254,7 +260,9 @@ test('a good answer puts the picks first and keeps the local tail in order', asy
 
   assert.equal(out.notice, null);
   assert.equal(out.librarianCount, 2, 'unknown ids dropped, duplicates deduped');
-  assert.deepEqual(out.results.slice(0, 2), [local.results[7], local.results[2]]);
+  assert.deepEqual(out.results.slice(0, 2),
+    [withWhy(local.results[7], 'closest match'), withWhy(local.results[2], 'the setup page for it')]);
+  assert.equal(local.results[7].why, undefined, 'the local row itself was not touched');
   const tail = out.results.slice(2);
   const expectedTail = local.results.filter((_, i) => i !== 7 && i !== 2);
   assert.deepEqual(tail, expectedTail, 'the rest keeps its original local order');
@@ -271,7 +279,7 @@ test('the librarian is capped at 8 picks', async () => {
   const out = await lib.enrich('thruster model control', local);
   assert.equal(out.librarianCount, PICK_LIMIT);
   assert.equal(out.librarianCount, 8);
-  assert.deepEqual(out.results.slice(0, 8), local.results.slice(0, 8));
+  assert.deepEqual(out.results.slice(0, 8), local.results.slice(0, 8).map((r) => withWhy(r, 'w')));
   assert.equal(out.results.length, local.results.length);
 });
 
@@ -298,8 +306,9 @@ test('an exact-title hit is pinned to index 0 when the librarian answered', asyn
   const out = await lib.enrich('  thruster model ', local);
 
   assert.equal(out.librarianCount, 3, 'the pin joins the picks, so the divider still follows them');
-  assert.equal(out.results[0], local.results[6]);
-  assert.deepEqual(out.results.slice(1, 3), [local.results[3], local.results[1]]);
+  assert.equal(out.results[0], local.results[6], 'the pin brought no why of its own');
+  assert.deepEqual(out.results.slice(1, 3),
+    [withWhy(local.results[3], 'a'), withWhy(local.results[1], 'b')]);
   assert.equal(out.results.length, local.results.length);
 });
 
@@ -314,7 +323,8 @@ test('a pinned hit already among the picks moves up without changing the count',
   const out = await lib.enrich('thruster model', local);
 
   assert.equal(out.librarianCount, 3);
-  assert.deepEqual(out.results.slice(0, 3), [local.results[4], local.results[3], local.results[1]]);
+  assert.deepEqual(out.results.slice(0, 3),
+    [withWhy(local.results[4], 'b'), withWhy(local.results[3], 'a'), withWhy(local.results[1], 'c')]);
 });
 
 test('the pin is a NO-OP when the librarian did not answer', async () => {
@@ -493,11 +503,12 @@ test('at the cap the pin displaces the last pick instead of making a 9th', async
 
   assert.equal(out.librarianCount, PICK_LIMIT, 'never more than 8 rows above the divider');
   assert.equal(out.results[0], local.results[15], 'the pinned hit leads');
-  assert.deepEqual(out.results.slice(1, 8), local.results.slice(0, 7),
+  assert.deepEqual(out.results.slice(1, 8), local.results.slice(0, 7).map((r) => withWhy(r, 'w')),
     'the seven higher-ranked picks keep their slots');
 
   const tail = out.results.slice(8);
-  assert.ok(tail.includes(local.results[7]), 'the displaced pick fell back, it did not vanish');
+  assert.ok(tail.includes(local.results[7]),
+    'the displaced pick fell back as its own local row, it did not vanish');
   const expectedTail = local.results.filter((_, i) => i > 6 && i !== 15);
   assert.deepEqual(tail, expectedTail, 'the tail is still in original local order');
   assert.equal(out.results.length, local.results.length, 'nothing lost, nothing duplicated');
@@ -514,7 +525,7 @@ test('below the cap the pin still adds a slot rather than displacing', async () 
   const out = await lib.enrich('thruster model', local);
   assert.equal(out.librarianCount, 8);
   assert.equal(out.results[0], local.results[15]);
-  assert.deepEqual(out.results.slice(1, 8), local.results.slice(0, 7));
+  assert.deepEqual(out.results.slice(1, 8), local.results.slice(0, 7).map((r) => withWhy(r, 'w')));
 });
 
 // ------------------------------------ progressive rendering: onLocal (F2) --
@@ -638,15 +649,29 @@ test('a single-word query fires onLocal, resolves the same shape, and posts noth
 });
 
 test('onLocal still fires when the query matches nothing', async () => {
-  const net = installFetch({ ok: true, status: 200, json: async () => ({ results: [] }) });
+  /* A zero-hit multi-word query is no longer the end of the search — it is
+     exactly the case the librarian exists for. The first paint is still the
+     empty local answer; the POST goes out with an empty candidate list; the
+     final answer is made of rows the local index never had. */
+  const net = installFetch({ ok: true, status: 200, json: async () => ({ results: [
+    { id: 'page:#/setup/graph-only', kind: 'page', title: 'Graph Only', where: 'Setup',
+      href: '#/setup/graph-only', snippet: 'reached by walking the graph', why: 'semantic hit' },
+  ] }) });
   try {
     const mod = freshModule();
     const seen = [];
     const out = await mod.query('zzz nothing matches this', { onLocal: (s) => seen.push(s) });
     assert.equal(seen.length, 1);
-    assert.deepEqual(seen[0].results, []);
-    assert.deepEqual(out.results, []);
-    assert.equal(net.posts().length, 0, 'nothing to re-rank, nothing to ask about');
+    assert.deepEqual(seen[0].results, [], 'the first paint is the empty local answer');
+    assert.equal(net.posts().length, 1, 'one POST, even with nothing to re-rank');
+    const sent = JSON.parse(net.posts()[0].init.body);
+    assert.equal(sent.q, 'zzz nothing matches this');
+    assert.deepEqual(sent.candidates, [], 'the body carries candidates: [] rather than skipping the ask');
+    assert.equal(out.results.length, 1, 'the answer is the server rows');
+    assert.equal(out.results[0].href, '#/setup/graph-only');
+    assert.equal(out.results[0].why, 'semantic hit');
+    assert.equal(out.librarianCount, 1);
+    assert.equal(out.notice, null);
   } finally {
     net.restore();
   }
@@ -674,5 +699,322 @@ test('the failure notice reaches the final resolve, not the onLocal paint', asyn
     assert.deepEqual(out.results, seen[0].results, 'and the rows are unchanged');
   } finally {
     net.restore();
+  }
+});
+
+// =====================================================================
+//  the graph walk: server-built rows, the schema gate, the quota notice
+// =====================================================================
+
+test('server row leads local tail', async () => {
+  /* The librarian may now answer with rows the local index never had. One of
+     them, listed first, renders ahead of everything local — and the candidate
+     it kept still carries its own local row, not a rebuilt copy. */
+  const local = mixedLocal(6);
+  const ids = assignIds(local.results);
+  const fetchSpy = spyFetch(resp(200, {
+    results: [
+      { id: 'page:#/setup/graph-only', kind: 'page', title: 'Graph Only', where: 'Setup',
+        href: '#/setup/graph-only', snippet: 'reached by walking the graph', why: 'the walk found it' },
+      { id: ids[4], why: 'a keyword hit worth keeping' },
+    ],
+  }));
+  const lib = createLibrarian({ fetch: fetchSpy });
+  const out = await lib.enrich('esc firmware', local);
+
+  assert.equal(out.notice, null);
+  assert.equal(out.librarianCount, 2, 'a server row counts as a pick, like a local one');
+  assert.equal(out.results[0].href, '#/setup/graph-only');
+  assert.equal(out.results[0].title, 'Graph Only');
+  assert.equal(out.results[0].kind, 'page');
+  assert.equal(out.results[0].score, 0, 'a server row carries no local score');
+  assert.equal(out.results[0].why, 'the walk found it');
+  assert.equal(out.results[1].href, local.results[4].href, 'the kept candidate is the local row');
+  assert.equal(out.results[1].why, 'a keyword hit worth keeping');
+  assert.equal(local.results[4].why, undefined, 'the local list itself is never mutated');
+
+  const tail = out.results.slice(2);
+  assert.deepEqual(tail, local.results.filter((_, i) => i !== 4), 'the tail keeps local order');
+  assert.equal(out.results.length, local.results.length + 1);
+});
+
+test('a javascript: or http://evil href fails the whole answer, local order untouched', async () => {
+  for (const href of ['javascript:alert(1)', 'http://evil.example/steal']) {
+    const local = mixedLocal(5);
+    const before = local.results.slice();
+    const fetchSpy = spyFetch(resp(200, {
+      results: [{ id: 'page:#/x', kind: 'page', title: 'Bad', where: '', href, snippet: '', why: 'w' }],
+    }));
+    const lib = createLibrarian({ fetch: fetchSpy });
+    const out = await lib.enrich('two words', local);
+    assert.equal(out.notice, LIBRARIAN_NOTICE, `${href} is a schema failure, not a row to skip`);
+    assert.equal(out.librarianCount, 0);
+    assert.deepEqual(out.results, before, 'local ordering survives untouched');
+  }
+});
+
+test('an exhausted 502 shows the quota notice, not the unreachable one', async () => {
+  const local = mixedLocal(5);
+  const spent = createLibrarian({
+    fetch: spyFetch(resp(502, {
+      error: 'no provider answered',
+      providers: [{ provider: 'nemotron', hop: 1, reason: 'HTTP 429: rate limited' }],
+      exhausted: true,
+    })),
+  });
+  const out = await spent.enrich('thruster model', local);
+  assert.equal(out.notice, LIBRARIAN_QUOTA_NOTICE);
+  assert.equal(LIBRARIAN_QUOTA_NOTICE,
+    'The librarian is out of free requests for today — answered by the local index.');
+  assert.equal(out.librarianCount, 0);
+  assert.deepEqual(out.results, local.results);
+
+  const broken = createLibrarian({ fetch: spyFetch(resp(502, { error: 'x', exhausted: false })) });
+  assert.equal((await broken.enrich('thruster model', local)).notice, LIBRARIAN_NOTICE,
+    'only an exhausted quota gets the quota wording');
+});
+
+test('a multi-word query with zero local hits asks anyway; HTTP 405 latches it off', async () => {
+  const net = installFetch({ ok: false, status: 405, json: async () => null });
+  try {
+    const mod = freshModule();
+    const out = await mod.query('zzz nothing matches this');
+    assert.deepEqual(out.results, []);
+    assert.equal(out.notice, null, 'the Pages copy shows no error for a query it cannot answer');
+    assert.equal(out.librarianCount, 0);
+    assert.equal(net.posts().length, 1);
+    assert.equal(mod.librarianLatched(), true, 'no function on this host: latched for the session');
+
+    await mod.query('another missing query');
+    assert.equal(net.posts().length, 1, 'the latch stops every further POST');
+  } finally {
+    net.restore();
+  }
+});
+
+// -------------------------------------------------- the per-session cache --
+
+test('cache: same query twice -> one POST', async () => {
+  const local = mixedLocal(8);
+  const ids = assignIds(local.results);
+  const fetchSpy = spyFetch(resp(200, { results: [{ id: ids[5], why: 'w' }] }));
+  const lib = createLibrarian({ fetch: fetchSpy });
+
+  const first = await lib.enrich('thruster model', local);
+  const second = await lib.enrich('  Thruster Model  ', local);
+  assert.equal(fetchSpy.calls.length, 1, 'the key is the trimmed, lower-cased query');
+  assert.equal(second.librarianCount, first.librarianCount);
+  assert.deepEqual(second.results, first.results, 'the cached answer re-merges identically');
+});
+
+test('cache: failure not cached', async () => {
+  const fetchSpy = spyFetch(resp(500, null));
+  const lib = createLibrarian({ fetch: fetchSpy });
+  const local = mixedLocal(4);
+  const first = await lib.enrich('thruster model', local);
+  const second = await lib.enrich('thruster model', local);
+  assert.equal(fetchSpy.calls.length, 2, 'a blip is retried next time, never remembered');
+  assert.equal(first.notice, LIBRARIAN_NOTICE);
+  assert.equal(second.notice, LIBRARIAN_NOTICE);
+});
+
+test('the answer cache is capped at 50 and evicts the oldest query first', async () => {
+  const local = mixedLocal(3);
+  const ids = assignIds(local.results);
+  const fetchSpy = spyFetch(resp(200, { results: [{ id: ids[0], why: 'w' }] }));
+  const lib = createLibrarian({ fetch: fetchSpy });
+  for (let i = 0; i < 51; i += 1) await lib.enrich(`query number ${i}`, local);
+  assert.equal(fetchSpy.calls.length, 51);
+  await lib.enrich('query number 50', local);
+  assert.equal(fetchSpy.calls.length, 51, 'the newest query is still remembered');
+  await lib.enrich('query number 0', local);
+  assert.equal(fetchSpy.calls.length, 52, 'the oldest fell out at the cap');
+});
+
+// ------------------------------------------------------ the row schema gate -
+
+test('pickRows keeps id-only rows and fills the optional fields', () => {
+  const rows = pickRows({
+    results: [
+      { id: 'page:#/a', why: 'because' },
+      { id: 'repo:https://github.com/o/r', kind: 'repo', title: 'r', href: 'https://github.com/o/r' },
+    ],
+  });
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows[0], { id: 'page:#/a', why: 'because' });
+  assert.deepEqual(rows[1], {
+    id: 'repo:https://github.com/o/r', why: '', href: 'https://github.com/o/r',
+    kind: 'repo', title: 'r', where: '', snippet: '',
+  });
+  assert.deepEqual(HC.pickIds({ results: [{ id: 'a' }, { id: 'b' }] }), ['a', 'b'],
+    'pickIds is the same read, ids only');
+});
+
+test('pickRows rejects a renderable row missing kind, title or a safe href', () => {
+  const base = { id: 'x', kind: 'page', title: 'T', href: '#/a' };
+  assert.equal(pickRows({ results: [base] }).length, 1);
+  const bad = [
+    { href: 'javascript:alert(1)' }, { href: 'http://evil.example' }, { href: '/absolute' },
+    { href: 'https://github.com.evil.example/x' }, { href: '' }, { href: null },
+    { kind: undefined }, { kind: '' }, { title: '' }, { title: 42 },
+  ];
+  for (const over of bad) {
+    assert.equal(pickRows({ results: [Object.assign({}, base, over)] }), null, JSON.stringify(over));
+  }
+  assert.equal(pickRows({ results: [{ why: 'no id' }] }), null);
+  assert.equal(pickRows({ results: 'nope' }), null);
+  assert.equal(pickRows(null), null);
+  assert.equal(pickRows([]), null);
+});
+
+test('a picked id matches a local page hit that carries an @heading anchor', async () => {
+  const local = {
+    total: 10,
+    results: [
+      hit({ title: 'Other', href: '#/setup/other' }),
+      hit({ title: 'PX4 Setup', href: '#/setup/getting-started/px4-setup@mavlink-router-qgroundcontrol' }),
+    ],
+  };
+  const fetchSpy = spyFetch(resp(200, {
+    results: [{ id: 'page:#/setup/getting-started/px4-setup', why: 'the page itself' }],
+  }));
+  const lib = createLibrarian({ fetch: fetchSpy });
+  const out = await lib.enrich('mavlink qgroundcontrol', local);
+  assert.equal(out.librarianCount, 1, 'the anchor did not hide the local row');
+  assert.equal(out.results[0].href, local.results[1].href, 'the LOCAL row wins, anchor and all');
+  assert.equal(out.results[0].why, 'the page itself');
+  assert.equal(out.results.length, 2, 'no duplicate row was invented');
+});
+
+test('the module exports pickRows, strongLead, librarianLatched and the quota notice', () => {
+  assert.equal(typeof pickRows, 'function');
+  assert.equal(typeof strongLead, 'function');
+  assert.equal(typeof HC.librarianLatched, 'function');
+  assert.equal(HC.librarianLatched(), false, 'a fresh session is not latched');
+  assert.equal(typeof LIBRARIAN_QUOTA_NOTICE, 'string');
+});
+
+// =====================================================================
+//  the STRONG-LEAD PIN, measured on the real index
+// =====================================================================
+
+const PROBE_EXPECT = new Map(readProbes()
+  .filter((p) => p.kind !== 'semantic')
+  .map((p) => [p.q, p.expect]));
+
+test('the strong-lead pin renders the probe leader first for the three multi-word probes', async () => {
+  /* The three multi-word probes' rendered rank 1 is DETERMINISTIC, not a model
+     outcome: each has a local leader whose title token-covers the query, so a
+     librarian answer that promotes other rows and never mentions the leader
+     still renders the leader first. ("pressure sensor" has only two local hits,
+     so "two other rows" is one row there — slice(1, 3) takes what exists.) */
+  const items = realItems();
+  for (const q of ['thruster model', 'pressure sensor', 'install ros']) {
+    const local = searchItems(items, q);
+    assert.ok(strongLead(local.results, q), `${q}: the local leader token-covers the query`);
+    const others = assignIds(local.results).slice(1, 3)
+      .map((id) => ({ id, why: 'the librarian preferred this' }));
+    assert.ok(others.length, `${q}: there is another row to promote`);
+
+    const lib = createLibrarian({ fetch: spyFetch(resp(200, { results: others })) });
+    const out = await lib.enrich(q, local);
+    assert.equal(fileOf(out.results[0].href), fileOf(PROBE_EXPECT.get(q)),
+      `${q}: the probe's link renders at rank 1`);
+    assert.equal(out.librarianCount, others.length + 1, 'the pin joins the picks');
+  }
+});
+
+test('the pin does not fire for "path planning" or "acoustic modem": both stay re-rankable', async () => {
+  const items = realItems();
+  for (const q of ['path planning', 'acoustic modem']) {
+    const local = searchItems(items, q);
+    assert.equal(strongLead(local.results, q), false, `${q}: the leader does not token-cover it`);
+    const picked = assignIds(local.results)[1];
+    const lib = createLibrarian({ fetch: spyFetch(resp(200, { results: [{ id: picked, why: 'w' }] })) });
+    const out = await lib.enrich(q, local);
+    assert.equal(out.results[0].href, local.results[1].href,
+      `${q}: the librarian really does take position 1`);
+    assert.equal(out.librarianCount, 1);
+  }
+});
+
+test('pin: the recorded trade — "mavlink router" pins add_mavlink_routerd', async () => {
+  /* THE RECORDED TRADE, written down as a test so it cannot be forgotten. The
+     strong-lead pin is deliberately wide: "router" is a token PREFIX of
+     "routerd", so the launch helper add_mavlink_routerd token-covers the query
+     and takes rank 1 over the PX4 Setup page at local rank 2 — even when the
+     librarian says the page is the better answer. This is the ACCEPTED COST of
+     a deterministic rank 1 for the keyword probes, not a desired outcome; drop
+     the pin and those three probes' rank 1 becomes a model outcome instead. */
+  const items = realItems();
+  const local = searchItems(items, 'mavlink router');
+  assert.equal(local.results[0].title, 'add_mavlink_routerd', 'measured leader on the real index');
+  assert.equal(local.results[1].title, 'PX4 Setup', 'the better answer sits at local rank 2');
+
+  const ids = assignIds(local.results);
+  const lib = createLibrarian({ fetch: spyFetch(resp(200, {
+    results: [{ id: ids[1], why: 'the setup page actually explains mavlink-router' }],
+  })) });
+  const out = await lib.enrich('mavlink router', local);
+  assert.equal(out.results[0].title, 'add_mavlink_routerd', 'the pin wins — the recorded trade');
+  assert.equal(out.results[1].title, 'PX4 Setup');
+  assert.equal(out.librarianCount, 2);
+});
+
+test('no-candidate-kept: the pin still leads when only graph rows come back', async () => {
+  /* The live shape of "pressure sensor": a short local list makes the server
+     walk the graph, and hop 2 can answer entirely in ids the local index never
+     had. Every pick counts, so the pin still fires and the divider still falls
+     after the picks. */
+  const items = realItems();
+  const serverRows = [
+    { id: 'repo:https://github.com/HippoCampusRobotics/esc', kind: 'repo', title: 'esc',
+      where: 'HippoCampusRobotics · core stack', href: 'https://github.com/HippoCampusRobotics/esc',
+      snippet: 'ESC firmware', why: 'walked from the graph' },
+    { id: 'page:#/setup/hippocampus-bringup/afro-esc', kind: 'page', title: 'Afro ESC',
+      where: 'Setup · Bringup', href: '#/setup/hippocampus-bringup/afro-esc',
+      snippet: 'flashing the ESCs', why: 'a graph neighbour' },
+  ];
+  for (const q of ['pressure sensor', 'install ros']) {
+    const local = searchItems(items, q);
+    const ids = new Set(assignIds(local.results));
+    for (const row of serverRows) assert.ok(!ids.has(row.id), `${q}: ${row.id} is not a local id`);
+
+    const lib = createLibrarian({ fetch: spyFetch(resp(200, { results: serverRows })) });
+    const out = await lib.enrich(q, local);
+    assert.equal(fileOf(out.results[0].href), fileOf(PROBE_EXPECT.get(q)),
+      `${q}: the probe's link still renders at rank 1`);
+    assert.equal(out.librarianCount, serverRows.length + 1,
+      `${q}: every pick counts — server rows plus the pin`);
+    assert.equal(out.results.length, local.results.length + serverRows.length);
+  }
+});
+
+test('pin: exact title beats strong lead', async () => {
+  const local = mixedLocal(6);
+  local.results[0].title = 'Thruster Models';   // token-prefix cover: a strong leader
+  local.results[4].title = 'Thruster Model';    // the exact title
+  assert.equal(strongLead(local.results, 'thruster model'), true, 'the leader would qualify');
+  const ids = assignIds(local.results);
+  const lib = createLibrarian({ fetch: spyFetch(resp(200, { results: [{ id: ids[2], why: 'w' }] })) });
+  const out = await lib.enrich('thruster model', local);
+  assert.equal(out.results[0], local.results[4], 'the exact title still wins the top slot');
+  assert.equal(out.librarianCount, 2);
+});
+
+test('pin: no answer no pin', async () => {
+  const local = mixedLocal(6);
+  local.results[0].title = 'Thruster Model';   // both pins would fire on an answer
+  const before = local.results.slice();
+  const stubs = {
+    'a failing host': resp(500, null),
+    'an absent host': resp(404, null),
+    'an empty answer': resp(200, { results: [] }),
+  };
+  for (const [label, stub] of Object.entries(stubs)) {
+    const lib = createLibrarian({ fetch: spyFetch(stub) });
+    const out = await lib.enrich('thruster model', local);
+    assert.equal(out.librarianCount, 0, label);
+    assert.deepEqual(out.results, before, `${label}: byte-identical local ordering`);
   }
 });

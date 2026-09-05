@@ -5,11 +5,25 @@
    Deep links: site hits -> hash routes (with @heading anchors when the heading
    is the better match); code/CAD/fork hits -> GitHub blob URLs (+#L<line>).
 
-   On top of that sits an OPTIONAL semantic re-ranker — "the librarian". The
-   local engine always runs first and its ordering is a protected regression
-   surface (tools/tests/test_search_routing.mjs locks the ten probes at rank 1);
-   the librarian may only reorder the head of the list, never replace it, and
-   every one of its failure modes degrades back to exactly the local answer.
+   On top of that sits an OPTIONAL semantic search — "the librarian", a
+   serverless agent that walks this site's own knowledge graphs (api/librarian).
+   The local engine always runs first and its ordering is a protected regression
+   surface (tools/tests/test_search_routing.mjs locks the ten keyword probes at
+   rank 1). The contract with the librarian is:
+
+     - every multi-word query asks it, INCLUDING one the keyword engine found
+       nothing for — that zero-hit case is the whole point of the walk — and it
+       may answer with rows this index never had (a repository, a page, a code
+       symbol), which render ahead of the local tail;
+     - it may re-rank the local hits it was given, but it may NOT take position
+       1 away from a local leader whose title token-covers the query (the
+       STRONG-LEAD PIN, generalising the older exact-title pin). That rule is
+       deliberately wide and has known false positives — "mavlink router" pins
+       the launch helper `add_mavlink_routerd` above the PX4 Setup page — which
+       is the recorded cost of a deterministic rendered rank 1 for the probes;
+     - every failure mode — no function on this host, an unreachable one, an
+       exhausted free quota, a malformed or unsafe answer — degrades to exactly
+       the local answer, byte-identical, with at most a one-line notice.
 
    The site is dual-hosted: GitHub Pages (a subpath, no functions) and Vercel
    (the root, api/* runs). The one rule that keeps both working is that the
@@ -167,6 +181,22 @@
   const CANDIDATE_LIMIT = 25;   // how many local hits the librarian gets to see
   const PICK_LIMIT = 8;         // how many of them it may promote
   const LIBRARIAN_NOTICE = 'Answered by the local index — the librarian is unreachable.';
+  // A spent free quota is not an outage, and telling the user it is invites a
+  // re-try into a wall. The function says so explicitly (502 + exhausted).
+  const LIBRARIAN_QUOTA_NOTICE =
+    'The librarian is out of free requests for today — answered by the local index.';
+  const CACHE_LIMIT = 50;       // answers remembered per session
+
+  /* A row the local index never built can only be rendered if its link is one
+     of the two shapes this site ever produces: an in-app hash route, or a
+     github.com URL. Anything else — javascript:, data:, another origin — is a
+     schema failure for the WHOLE answer, not a row to quietly skip. */
+  function allowedHref(href) {
+    return typeof href === 'string'
+      && (/^#\//.test(href) || /^https:\/\/github\.com\//.test(href));
+  }
+
+  const str = (v) => (typeof v === 'string' ? v : '');
 
   /* Candidate ids. The scheme is `<kind>:<href>` — the route for a page, the
      GitHub blob URL (with its #L anchor) for code, CAD and fork rows — with a
@@ -205,83 +235,165 @@
     return 'failed';
   }
 
-  /* Strict schema read of {"results":[{"id","why"}]}. Anything else is treated
-     as a failure, not as an empty answer. */
-  function pickIds(payload) {
+  /* Strict schema read of {"results":[{id, why[, kind, title, where, href,
+     snippet]}]}. A row that names a candidate id is just {id, why} — the
+     client already owns that row. A row that brings its own href is a row this
+     index never had, so it must bring everything needed to RENDER it and a
+     link this site could have produced itself. Anything else is a failure, not
+     an empty answer. */
+  function pickRows(payload) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
     if (!Array.isArray(payload.results)) return null;
-    const ids = [];
+    const rows = [];
     for (const row of payload.results) {
-      if (!row || typeof row !== 'object') return null;
+      if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
       if (typeof row.id !== 'string' || !row.id) return null;
-      ids.push(row.id);
+      const out = { id: row.id, why: str(row.why) };
+      if (row.href !== undefined) {
+        if (!allowedHref(row.href)) return null;
+        if (typeof row.kind !== 'string' || !row.kind) return null;
+        if (typeof row.title !== 'string' || !row.title) return null;
+        out.href = row.href;
+        out.kind = row.kind;
+        out.title = row.title;
+        out.where = str(row.where);
+        out.snippet = str(row.snippet);
+      }
+      rows.push(out);
     }
-    return ids;
+    return rows;
   }
 
-  /* Fold the librarian's picks into the local list: picks first (deduped, capped
-     at PICK_LIMIT, unknown ids dropped), then every remaining local hit in its
-     original local order. The exact-title pin runs ONLY when the librarian
-     actually answered — with no answer the order must stay byte-identical to
-     what the local engine produced. */
-  function mergePicks(localResults, ids, q) {
-    const rowIds = assignIds(localResults);
-    const byId = new Map();
-    rowIds.forEach((id, i) => { if (!byId.has(id)) byId.set(id, i); });
+  /* The same read, ids only — kept because tools and tests speak in ids. */
+  function pickIds(payload) {
+    const rows = pickRows(payload);
+    return rows ? rows.map((r) => r.id) : null;
+  }
 
-    const chosen = [];
+  /* A page hit whose best match was a HEADING carries an @anchor in its href,
+     and therefore in its id; the server answers with the page's own route. The
+     two must still be the same row, so id matching compares anchor-stripped. */
+  function bareId(id) {
+    const m = /^(page:#\/[^@]*)@/.exec(id);
+    return m ? m[1] : id;
+  }
+
+  /* The strong-lead test: every query term is a token, or a token PREFIX, of
+     the local leader's title — using the engine's own tokens(), so the rule is
+     the engine's own idea of a word. Wide on purpose, and wide in fact: see the
+     "mavlink router" counterexample recorded in the routing test. */
+  function strongLead(localResults, q) {
+    if (!Array.isArray(localResults) || !localResults.length) return false;
+    const terms = tokens(q == null ? '' : q).slice(0, 8);
+    if (!terms.length) return false;
+    const lead = localResults[0];
+    const title = tokens(lead && lead.title != null ? lead.title : '');
+    if (!title.length) return false;
+    return terms.every((t) => title.some((k) => k === t || k.startsWith(t)));
+  }
+
+  /* Fold the librarian's picks into the local list: picks first (deduped,
+     capped at PICK_LIMIT), then every remaining local hit in its original local
+     order. `rows` may be plain id strings or full rows. A row whose id is a
+     local one renders the LOCAL row (a shallow copy carrying the `why`, so the
+     local list's own objects are never touched); a row the local index never
+     had renders from the server's fields once its href passes the allowlist; a
+     row that is neither is dropped.
+
+     Then the PIN, which runs ONLY when the librarian actually answered — with
+     no answer the order stays byte-identical to what the local engine produced.
+     The pinned row is the exact-title match if there is one, else the local
+     leader when it token-covers the query (strongLead). librarianCount counts
+     EVERY pick, local-matched or server-built, so the divider in js/app.js
+     falls after the picks and the pin fires on any answer at all. */
+  function mergePicks(localResults, rows, q) {
+    const local = Array.isArray(localResults) ? localResults : [];
+    const rowIds = assignIds(local);
+    const byId = new Map();
+    rowIds.forEach((id, i) => {
+      if (!byId.has(id)) byId.set(id, i);
+      const bare = bareId(id);
+      if (!byId.has(bare)) byId.set(bare, i);
+    });
+
+    const picks = [];          // { index?, row } — index is set for local rows
     const taken = new Set();
-    for (const raw of ids) {
-      if (typeof raw !== 'string' || !byId.has(raw)) continue;
-      const i = byId.get(raw);
-      if (taken.has(i)) continue;
-      taken.add(i);
-      chosen.push(i);
-      if (chosen.length >= PICK_LIMIT) break;
+    for (const raw of (Array.isArray(rows) ? rows : [])) {
+      const row = typeof raw === 'string' ? { id: raw } : raw;
+      if (!row || typeof row !== 'object') continue;
+      const id = typeof row.id === 'string' ? row.id : '';
+      if (!id) continue;
+      const at = byId.has(id) ? byId.get(id) : byId.get(bareId(id));
+      if (at !== undefined) {
+        if (taken.has(at)) continue;
+        taken.add(at);
+        const why = str(row.why);
+        picks.push({ index: at, row: why ? Object.assign({}, local[at], { why }) : local[at] });
+      } else if (allowedHref(row.href)) {
+        picks.push({ row: {
+          score: 0, kind: str(row.kind), title: str(row.title), where: str(row.where),
+          href: row.href, snippet: str(row.snippet), why: str(row.why),
+        } });
+      }
+      if (picks.length >= PICK_LIMIT) break;
     }
-    let librarianCount = chosen.length;
+    let librarianCount = picks.length;
 
     if (librarianCount > 0) {
       const want = String(q == null ? '' : q).trim().toLowerCase();
+      let pin = -1;
       if (want) {
-        const pin = localResults.findIndex(
+        pin = local.findIndex(
           (r) => String(r.title == null ? '' : r.title).trim().toLowerCase() === want);
-        if (pin >= 0) {
-          const at = chosen.indexOf(pin);
-          if (at > 0) {
-            chosen.splice(at, 1);
-            chosen.unshift(pin);
-          } else if (at < 0 && chosen.length >= PICK_LIMIT) {
-            // Already at the cap: the pin takes the top slot and the LOWEST
-            // ranked pick gives up its own, so there are never more than
-            // PICK_LIMIT rows above the divider. The displaced pick is not
-            // thrown away — dropping it from `taken` puts it straight back into
-            // the local tail below, in its original local position.
-            const displaced = chosen.pop();
-            taken.delete(displaced);
-            chosen.unshift(pin);
-            taken.add(pin);
-          } else if (at < 0) {
-            chosen.unshift(pin);
-            taken.add(pin);
-            librarianCount += 1;   // the divider still falls after the picks
-          }
+      }
+      if (pin < 0 && strongLead(local, q)) pin = 0;
+      if (pin >= 0) {
+        const at = picks.findIndex((p) => p.index === pin);
+        if (at > 0) {
+          picks.unshift(picks.splice(at, 1)[0]);
+        } else if (at < 0 && picks.length >= PICK_LIMIT) {
+          // Already at the cap: the pin takes the top slot and the LOWEST
+          // ranked pick gives up its own, so there are never more than
+          // PICK_LIMIT rows above the divider. A displaced LOCAL pick is not
+          // thrown away — dropping it from `taken` puts it straight back into
+          // the local tail below, in its original local position; a displaced
+          // server row has no local position to fall back to and simply goes.
+          const displaced = picks.pop();
+          if (displaced.index !== undefined) taken.delete(displaced.index);
+          picks.unshift({ index: pin, row: local[pin] });
+          taken.add(pin);
+        } else if (at < 0) {
+          picks.unshift({ index: pin, row: local[pin] });
+          taken.add(pin);
+          librarianCount += 1;   // the divider still falls after the picks
         }
       }
     }
 
-    const rest = localResults.filter((_, i) => !taken.has(i));
-    return { results: chosen.map((i) => localResults[i]).concat(rest), librarianCount };
+    const rest = local.filter((_, i) => !taken.has(i));
+    return { results: picks.map((p) => p.row).concat(rest), librarianCount };
   }
 
   /* One librarian per session. The `absent` latch is in-memory and deliberately
      never reset: on a host without the function we spend exactly one wasted
-     request per session and show the user nothing at all. */
+     request per session and show the user nothing at all.
+
+     The session also remembers ANSWERS, keyed on the trimmed lower-cased query:
+     re-running or re-navigating to a search re-merges from memory with zero
+     network. Only answers are cached — a failure is retried next time, so a
+     blip never sticks to a query for the rest of the session. */
   function createLibrarian(opts) {
     const cfg = opts || {};
     const timeoutMs = cfg.timeoutMs || LIBRARIAN_TIMEOUT_MS;
     const doFetch = cfg.fetch || ((url, init) => fetch(url, init));
     let absent = false;
+    const answers = new Map();
+
+    function remember(key, rows) {
+      answers.delete(key);            // re-insert: Map keeps insertion order
+      answers.set(key, rows);
+      while (answers.size > CACHE_LIMIT) answers.delete(answers.keys().next().value);
+    }
 
     async function enrich(q, local) {
       const results = (local && local.results) || [];
@@ -289,9 +401,17 @@
       const failed = { results, librarianCount: 0, notice: LIBRARIAN_NOTICE };
 
       const trimmed = String(q == null ? '' : q).trim();
+      const answered = (rows) => {
+        const merged = mergePicks(results, rows, trimmed);
+        return { results: merged.results, librarianCount: merged.librarianCount, notice: null };
+      };
+
       if (!/\s/.test(trimmed)) return plain;   // single word: zero network, always
       if (absent) return plain;
-      if (!results.length) return plain;       // nothing to re-rank
+      // An empty local list is NOT a reason to stay quiet: a multi-word query
+      // the keyword engine cannot answer is exactly what the walk is for.
+      const key = trimmed.toLowerCase();
+      if (answers.has(key)) return answered(answers.get(key));
 
       const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
       const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
@@ -309,7 +429,18 @@
         }
         const verdict = classifyStatus(res && res.status);
         if (verdict === 'absent') { absent = true; return plain; }
-        if (verdict !== 'ok') return failed;
+        if (verdict !== 'ok') {
+          // One body read decides WHICH truth the notice tells. A spent free
+          // quota is not an unreachable librarian, and saying so keeps the
+          // reader from re-trying into a wall.
+          let body = null;
+          try { body = await res.json(); } catch (e) { body = null; }
+          const spent = Boolean(body && typeof body === 'object' && body.exhausted === true);
+          return {
+            results, librarianCount: 0,
+            notice: spent ? LIBRARIAN_QUOTA_NOTICE : LIBRARIAN_NOTICE,
+          };
+        }
 
         let payload;
         try {
@@ -317,10 +448,10 @@
         } catch (e) {
           return failed;                       // malformed body
         }
-        const ids = pickIds(payload);
-        if (!ids) return failed;               // schema-invalid body
-        const merged = mergePicks(results, ids, trimmed);
-        return { results: merged.results, librarianCount: merged.librarianCount, notice: null };
+        const rows = pickRows(payload);
+        if (!rows) return failed;              // schema-invalid body
+        remember(key, rows);
+        return answered(rows);
       } finally {
         if (timer) clearTimeout(timer);
       }
@@ -340,7 +471,9 @@
      hook gets the local ordering byte-identical to what the engine produced,
      with librarianCount 0, notice null and the exact-title pin NOT applied —
      the pin is only ever correct once the librarian has actually answered.
-     onLocal is called at most once. */
+     onLocal is called at most once. A multi-word query with NO local hits is
+     still asked — onLocal paints the empty local answer, js/app.js shows the
+     waiting line, and the final resolve carries whatever the walk found. */
   async function query(q, opts) {
     const options = opts || {};
     if (!loaded) loaded = loadAll();
@@ -353,7 +486,6 @@
       // A renderer that throws is the renderer's problem, never the search's.
       try { options.onLocal(localShape); } catch (e) { /* keep going */ }
     }
-    if (!local.results.length) return localShape;
     const enriched = await librarian.enrich(q, local);
     return {
       total: local.total,
@@ -374,9 +506,13 @@
     projectCandidates,
     classifyStatus,
     pickIds,
+    pickRows,
     mergePicks,
+    strongLead,
+    librarianLatched: () => librarian.isLatched(),
     LIBRARIAN_URL,
     LIBRARIAN_NOTICE,
+    LIBRARIAN_QUOTA_NOTICE,
     LIBRARIAN_TIMEOUT_MS,
     CANDIDATE_LIMIT,
     PICK_LIMIT,
