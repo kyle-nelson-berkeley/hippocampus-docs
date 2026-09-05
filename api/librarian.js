@@ -41,11 +41,15 @@
                candidates must be an array; it may be EMPTY.
      out  200  {"results":[{"id","why"[,"kind","title","where","href","snippet"]},…],
                 "provider","model","promptChars","temperature","calls","hops",
-                "ms","partial"}
+                "ms","partial"[,"salvaged"]}
+               `salvaged` appears only when it is true: an answer that was not
+               JSON at all had its ids read out of the wreck (see parseModelJson).
           400  malformed request       413  body too large
           403  cross-origin            429  rate limited
           405  wrong method            500  a file missing from the bundle
-          502  {"error","providers":[{provider,hop,reason}],"exhausted"}
+          502  {"error","providers":[{provider,hop,attempt,reason}],"exhausted"}
+               one entry per ATTEMPT: a primary re-asked after a garbled or
+               empty answer appears again as attempt 2 on the same hop.
      EVERY answer, the pre-body 405/403/429 included, carries
      `x-librarian-version: 2`. It costs nothing — no body read, no model call —
      and is the zero-quota readiness probe: the old handler answers 405 without
@@ -182,23 +186,39 @@ const WALK_THRESHOLD = 3;   // 3+ keyword hits is already a strong answer
 
 const PROVIDER_NAMES = PROVIDERS.map((p) => p.name);
 
+/* MEASURED 2026-09-05 against the free serving, and this prompt is the answer
+   to what was measured. On its one valid reply to "ESC I2C firmware" the model
+   returned a SINGLE hit — the repository, with no setup page beside it — and
+   put a PROJECT name in `open`, which validateOpen drops, so the walk never
+   ran. On "motor mount CAD" it ranked the assembly and the neighbouring
+   gondola parts around the part actually named in the query. Hence the three
+   rules below: pair the page that documents a thing with the repository that
+   implements it, rank the named component above what merely contains it, and
+   say in words that `open` takes repository names. A test pins the literals. */
 const HOP1_SYSTEM = [
   'You are the librarian of a robotics lab\'s documentation site.',
   'Answer the search query by walking the site\'s knowledge graph. This is hop 1 of 2.',
   'You get the QUERY, CANDIDATES a keyword index already found (may be empty; each one',
   'matches every query word), and the CATALOG: every page (id page:…), every repository',
-  '(id repo:…, with its project, a fork flag and its main code symbols) and every CAD',
+  '(id repo:…, with its project, fork flag and main code symbols) and every CAD',
   'part (id cad:…).',
   '',
   'Reply with STRICT JSON and nothing else, in exactly this shape:',
   '  {"hits":[{"id":"<id>","why":"<at most 12 words>"}],"open":["<repo name>"]}',
   '- hits: the entries that answer the query, best first, at most ' + MAX_PICKS + ',',
   '  using ONLY ids listed above; when candidates exist, keep the best of them first.',
-  '- open: only when walk is true — at most ' + MAX_OPEN_REPOS + ' repositories worth',
-  '  inspecting for code-level hits (classes, functions, files) when the query is about',
-  '  code, firmware, drivers or a symbol; otherwise [].',
+  '- For a query about a device, firmware, driver or procedure, list the setup page that',
+  '  documents it AND the repository that implements it, then related parts, forks last;',
+  '  a single hit is almost always incomplete on this site — aim for 3 to ' + MAX_PICKS + '.',
+  '- When the query names a specific component (mount, bracket, housing, adapter…),',
+  '  the part whose own name or path contains those words is the top hit;',
+  '  assemblies and neighbouring parts that merely contain or sit near it come after.',
   '- Prefer the lab\'s own repositories over forks unless the query is about the upstream',
   '  firmware itself.',
+  '- open: only when walk is true — at most ' + MAX_OPEN_REPOS + ' repositories worth',
+  '  inspecting for code-level hits (classes, functions, files) when the query is about',
+  '  code, firmware, drivers or a symbol; otherwise []. open lists REPOSITORY NAMES',
+  '  exactly as they appear after `repo:` in the catalog, never a project or page name.',
 ].join('\n');
 
 const HOP2_SYSTEM = [
@@ -568,7 +588,10 @@ const indexCache = new Map();
    {data/graph,search}/** via includeFiles); the function never fetches its own
    site over HTTP. Built once per process per directory pair. */
 function siteIndex(dataDir, siteDir) {
-  const key = `${dataDir} ${siteDir}`;
+  // \u0000 as an escape, never as a raw byte: a literal NUL in this file makes
+  // grep call the whole source binary and answer nothing, which silently
+  // empties every audit of it. The separator itself is unchanged.
+  const key = `${dataDir}\u0000${siteDir}`;
   const cached = indexCache.get(key);
   if (cached) return cached;
 
@@ -1000,10 +1023,58 @@ function buildHop2Messages(ask, hits, open, ctx) {
   ];
 }
 
+/* LAST RESORT, below the closer repair: pull the ids out of an answer that is
+   not JSON at all.
+
+   MEASURED 2026-09-05 — the SAME hop-1 request sent three times on the free
+   serving answered once with
+     {"hits":[{"id":"repo:esc],"open":["esc"]}
+   (finish_reason "stop": a broken string that swallows the `why` and closes
+   nothing), once with an empty body, and once validly. The wreck still carries
+   the model's own ids in the model's own order, and every id is resolved
+   against real site data downstream, so reading them widens what is READ, never
+   what is TRUSTED. Throwing it away instead spends the fallback call — and, on
+   that measured day, ended in a 502 for a formatting accident.
+
+   An id capture that runs to the END of the text is deliberately NOT taken: an
+   answer cut off mid-string (`{"hits":[{"id":"abc`) is a truncation for
+   closeOpenBrackets to judge, not a garble, and half an id is not an id. */
+const SALVAGE_ID = /"id"\s*:\s*"([^"\]}]+)/g;
+const SALVAGE_WHY = /"why"\s*:\s*"([^"]*)"/;
+const SALVAGE_OPEN = /"open"\s*:\s*\[([^\]]*)\]/;
+const SALVAGE_QUOTED = /"([^"]*)"/g;
+
+function salvageModelJson(text) {
+  const marks = [];
+  let m;
+  SALVAGE_ID.lastIndex = 0;
+  while ((m = SALVAGE_ID.exec(text)) !== null) {
+    if (SALVAGE_ID.lastIndex >= text.length) break;   // unfinished, not garbled
+    marks.push({ id: m[1], at: m.index, after: SALVAGE_ID.lastIndex });
+  }
+  if (!marks.length) return null;
+  const hits = marks.map((mark, i) => {
+    // the reason belongs to THIS id: look only as far as the next one
+    const until = i + 1 < marks.length ? marks[i + 1].at : text.length;
+    const why = SALVAGE_WHY.exec(text.slice(mark.after, until));
+    return { id: mark.id, why: why ? why[1] : '' };
+  });
+  const open = [];
+  const list = SALVAGE_OPEN.exec(text);
+  if (list) {
+    let q;
+    SALVAGE_QUOTED.lastIndex = 0;
+    while ((q = SALVAGE_QUOTED.exec(list[1])) !== null) open.push(q[1]);
+  }
+  return { hits, open, salvaged: true };
+}
+
 /* Models wrap JSON in fences and reasoning models prepend a think block; strip
-   both, then parse strictly. Anything that still will not parse counts as a
-   provider failure, so the other provider gets its turn. Returns the whole hop
-   document ({hits, open?}), because the walk needs `open` as well as `hits`. */
+   both, then parse strictly. Anything that still will not parse is handed to
+   the closer repair and then to the salvage above; only when BOTH give up is it
+   a provider failure, so the other provider gets its turn. Returns the whole
+   hop document ({hits, open?}), because the walk needs `open` as well as
+   `hits`. An EMPTY answer has nothing to read and stays a failure. */
 function parseModelJson(content) {
   let text = String(content == null ? '' : content).trim();
   text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
@@ -1018,15 +1089,15 @@ function parseModelJson(content) {
     // Nemotron nano (measured 2026-09-04) ends its answer one closer short —
     // `{"hits":[{...}]` with finish_reason "stop" — on a third of queries.
     // Append the closers the text is missing and try once more. Only missing
-    // closers are repaired; anything else that will not parse is still a
-    // provider failure, so the other entry gets its turn.
+    // closers are repaired; anything else that will not parse falls to the
+    // salvage, which recovers ids or gives the other entry its turn.
     const patched = closeOpenBrackets(text);
-    if (patched === null) return null;
+    if (patched === null) return salvageModelJson(text);
     try {
       doc = JSON.parse(patched);
       repaired = true;
     } catch (e2) {
-      return null;
+      return salvageModelJson(text);
     }
   }
   if (!doc || typeof doc !== 'object' || Array.isArray(doc) || !Array.isArray(doc.hits)) return null;
@@ -1146,7 +1217,12 @@ async function askProvider(cfg, messages, doFetch, deadlineMs) {
       // parser does not know. It is the model's reply to the caller's own
       // query, capped, so nothing sensitive is being surfaced.
       const head = JSON.stringify(String(content == null ? '' : content).slice(0, 120));
-      throw new Error(`answer was not the requested strict JSON (finish: ${finish}, head: ${head})`);
+      const err = new Error(`answer was not the requested strict JSON (finish: ${finish}, head: ${head})`);
+      // The ONE failure a re-ask of the same model fixes — measured: the same
+      // request garbles or comes back empty once and answers cleanly the next
+      // time. askHop reads this flag to decide whether a retry is worth a call.
+      err.parseFailure = true;
+      throw err;
     }
     return parsed;
   } finally {
@@ -1170,19 +1246,33 @@ async function runSearch(ask, ctx, cfgs, doFetch, now) {
   let calls = 0;
   let promptChars = 0;
 
+  /* One hop, up to three attempts and never more than the search has calls for:
+       primary → (primary again, ONLY after a parse or empty failure) → nano.
+     The retry is the 2026-09-05 measurement made into a rule. The same request,
+     sent three times, garbled once and came back empty once — the free serving
+     is non-deterministic, and a re-ask of the SAME model is the cheapest fix
+     for that. Everything else is not: a timeout means the model is slow (a
+     second deadline of its own would only spend the budget), an HTTP error
+     means the upstream is unhappy, and a 429 means the quota is gone — all
+     three go straight to the other entry, which is a different model.
+     Each attempt is its own entry in `failures`, numbered, so a 502 shows the
+     ladder that was actually walked rather than a collapsed one-per-entry. */
   async function askHop(hop, messages) {
     const chars = messages.reduce((n, m) => n + m.content.length, 0);
-    for (const cfg of cfgs) {
+    const queue = cfgs.map((cfg) => ({ cfg, attempt: 1 }));
+    let retried = false;                        // at most one re-ask per hop
+    while (queue.length) {
+      const { cfg, attempt } = queue.shift();
       if (calls >= MAX_MODEL_CALLS) break;
       const left = remaining();
       if (left < MIN_HOP_MS) break;
       if (!cfg.key) {
-        failures.push({ provider: cfg.name, hop, reason: `no key: ${cfg.keyEnv} is not set` });
+        failures.push({ provider: cfg.name, hop, attempt, reason: `no key: ${cfg.keyEnv} is not set` });
         quota.push(false);
         continue;
       }
       if (cfg.refused) {
-        failures.push({ provider: cfg.name, hop, reason: cfg.refused });
+        failures.push({ provider: cfg.name, hop, attempt, reason: cfg.refused });
         quota.push(false);
         continue;
       }
@@ -1197,8 +1287,12 @@ async function runSearch(ask, ctx, cfgs, doFetch, now) {
         const reason = e && e.name === 'AbortError'
           ? `timed out after ${deadlineMs}ms`
           : String((e && e.message) || e).slice(0, 200);
-        failures.push({ provider: cfg.name, hop, reason });
+        failures.push({ provider: cfg.name, hop, attempt, reason });
         quota.push(Boolean(e) && e.status === 429);
+        if (!retried && cfg === cfgs[0] && e && e.parseFailure) {
+          retried = true;
+          queue.unshift({ cfg, attempt: attempt + 1 });   // ahead of the fallback
+        }
       }
     }
     return null;
@@ -1217,6 +1311,9 @@ async function runSearch(ask, ctx, cfgs, doFetch, now) {
   }
 
   let answered = hop1.cfg;
+  // Reported on the 200 so the bench can count how often the salvage carried a
+  // search that would otherwise have cost a second call or a 502.
+  let salvaged = Boolean(hop1.doc.salvaged);
   const hits1 = validateHits(hop1.doc.hits, ctx);
   const open = walk ? validateOpen(hop1.doc.open, ctx) : [];
   let hops = 1;
@@ -1234,6 +1331,7 @@ async function runSearch(ask, ctx, cfgs, doFetch, now) {
       if (hits2.length) {
         hop2ok = true;
         answered = hop2.cfg;
+        if (hop2.doc.salvaged) salvaged = true;
         const seen = new Set();
         final = [];
         for (const hit of hits2.concat(hits1)) {
@@ -1254,6 +1352,7 @@ async function runSearch(ask, ctx, cfgs, doFetch, now) {
     calls,
     hops,
     partial: Boolean(open.length) && !hop2ok,
+    salvaged,
     ms: Math.max(0, clock() - t0),
     failures,
   };
@@ -1347,7 +1446,7 @@ async function handle(req, res, deps) {
     return;
   }
 
-  send(res, 200, {
+  const body = {
     results: outcome.results,
     provider: outcome.provider,
     model: outcome.model,
@@ -1359,7 +1458,10 @@ async function handle(req, res, deps) {
     hops: outcome.hops,
     ms: outcome.ms,
     partial: outcome.partial,
-  });
+  };
+  // Optional, and present only when true: the ordinary answer shape is unchanged.
+  if (outcome.salvaged) body.salvaged = true;
+  send(res, 200, body);
 }
 
 module.exports = (req, res, deps) => handle(req, res, deps || {});

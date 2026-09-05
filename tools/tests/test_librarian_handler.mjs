@@ -356,13 +356,24 @@ test('an answer that stops one closer short is repaired, not rejected', async ()
   assert.deepEqual(r.json.results.map((x) => x.id), [id]);
 });
 
-test('a provider that answers 200 with unusable content falls through', async () => {
+test('a provider that answers 200 with unusable content twice falls through', async () => {
+  /* STRICTLY STRONGER than the version this replaces. That one stubbed ONE
+     unusable answer and asserted only that the OTHER entry answered on call 2.
+     A parse or empty failure now buys the primary one retry of itself first
+     (measured 2026-09-05: the same request garbles once and answers cleanly the
+     next time, which switching to the weaker fallback does not fix), so this
+     pins the WHOLE ladder — primary, primary retry, then the fallback — and
+     still asserts the fall-through it always asserted. */
   const id = ASK.candidates[2].id;
-  const fetchStub = providerStub(['I cannot help with that.', [id]]);
+  const fetchStub = providerStub(['I cannot help with that.', 'still not JSON', [id]]);
   const r = await call('POST', ASK, { env: KEYS, fetch: fetchStub });
   assert.equal(r.code, 200);
   assert.equal(r.json.provider, 'nano');
-  assert.equal(fetchStub.calls.length, 2);
+  assert.equal(fetchStub.calls.length, 3);
+  assert.equal(fetchStub.calls[0].body.model, fetchStub.calls[1].body.model,
+    'call 2 is the SAME entry retried, not the fallback');
+  assert.notEqual(fetchStub.calls[2].body.model, fetchStub.calls[0].body.model,
+    'call 3 is the fallback, and it is the last one');
 });
 
 // ------------------------------------------------------------ the fallback --
@@ -562,10 +573,20 @@ test('the handler works on a bare stream/response pair with no Vercel helpers', 
   assert.match(String(r.headers['content-type'] || ''), /application\/json/);
 });
 
-test('the source itself references no Vercel-injected helper', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'api', 'librarian.js'), 'utf8');
+test('the source itself references no Vercel-injected helper, and carries no NUL byte', () => {
+  const handlerPath = path.join(ROOT, 'api', 'librarian.js');
+  const src = fs.readFileSync(handlerPath, 'utf8');
   const banned = /req\.(body|query|cookies)|res\.(status|json|send)\(/g;
   assert.deepEqual(src.match(banned), null, 'raw node only — no Vercel helpers');
+  /* STRICTLY STRONGER than the Vercel-helper check alone: the file must also be
+     text a text tool can read. A raw 0x00 in the source (it lived in the
+     siteIndex cache key) makes grep call the whole file binary and answer
+     nothing — `grep -c OPENROUTER_API_KEY api/librarian.js` printed a blank
+     line instead of 2 — so every audit of this file silently returned empty.
+     Read as latin1, so one byte is one char and a NUL cannot hide. */
+  const bytes = fs.readFileSync(handlerPath, 'latin1');
+  assert.equal(bytes.indexOf('\x00'), -1,
+    'a raw NUL byte makes grep treat the handler as binary — write \\u0000 instead');
 });
 
 // ------------------------------------------------- abuse protection (F1) --
@@ -928,6 +949,142 @@ test('the 3-call cap skips the hop-2 fallback rather than spending a fourth call
   assert.equal(r.json.results.length, 2);
 });
 
+/* THE LADDER, after the 2026-09-05 measurement: primary → (primary retry, only
+   after a parse or empty failure) → fallback, never more than MAX_MODEL_CALLS
+   calls in a search. A garbled or empty answer is the one failure the SAME
+   model fixes on a re-ask; a timeout, an HTTP error and a quota refusal are
+   not, and go straight to the other entry. */
+
+test('a parse failure retries the SAME primary once, before the fallback', async () => {
+  let extra = false;
+  const fetchStub = providerStub([
+    'I cannot help with that.',                       // hop 1, call 1
+    { hits: [ESC_REPO, AFRO_PAGE], open: [] },        // hop 1, call 2 — the RETRY
+    (n) => { extra = true; throw new Error(`there must never be a call ${n}`); },
+  ]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  assert.equal(extra, false);
+  assert.equal(r.json.calls, 2);
+  assert.equal(r.json.provider, 'nemotron', 'the retry is the same entry, not the weaker fallback');
+  assert.equal(fetchStub.calls[0].body.model, fetchStub.calls[1].body.model);
+  assert.equal(r.json.hops, 1);
+  assert.equal(r.json.results.length, 2);
+});
+
+test('two parse failures spend the retry and then the fallback — three calls, never four', async () => {
+  let extra = false;
+  const fetchStub = providerStub([
+    'I cannot help with that.',                       // hop 1, call 1
+    'still not JSON',                                 // hop 1, call 2 — the RETRY
+    { hits: [ESC_REPO, AFRO_PAGE], open: ['esc'] },   // hop 1, call 3 — the fallback
+    (n) => { extra = true; throw new Error(`MAX_MODEL_CALLS is 3, not ${n}`); },
+  ]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  assert.equal(extra, false, 'the retry never buys a fourth call');
+  assert.equal(r.json.calls, 3);
+  assert.equal(r.json.provider, 'nano');
+  assert.equal(r.json.hops, 1, 'the 3-call cap left nothing for the walk');
+  assert.equal(r.json.partial, true, 'a non-empty open that was never walked is partial');
+  assert.equal(fetchStub.calls[0].body.model, fetchStub.calls[1].body.model, 'call 2 was the retry');
+  assert.notEqual(fetchStub.calls[2].body.model, fetchStub.calls[0].body.model, 'call 3 was the fallback');
+});
+
+test('a primary TIMEOUT is not retried — it goes straight to the other entry', async () => {
+  const realSetTimeout = global.setTimeout;
+  global.setTimeout = (fn, ms, ...a) => realSetTimeout(fn, 0, ...a);
+  let n = 0;
+  try {
+    const doFetch = async (url, init) => {
+      n += 1;
+      if (n === 1) return hanging(url, init);
+      return modelReply(hopDoc({ hits: [ESC_REPO], open: [] }));
+    };
+    const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+      { env: KEYS, fetch: doFetch });
+    assert.equal(r.code, 200);
+    assert.equal(n, 2, 'a slow model does not get a second deadline of its own');
+    assert.equal(r.json.calls, 2);
+    assert.equal(r.json.provider, 'nano');
+  } finally {
+    global.setTimeout = realSetTimeout;
+  }
+});
+
+test('an HTTP 429 goes straight to the fallback, and all-429 still reports exhausted', async () => {
+  const one429 = providerStub([{ status: 429, text: 'rate limit exceeded' }, { hits: [ESC_REPO], open: [] }]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: one429 });
+  assert.equal(r.code, 200);
+  assert.equal(one429.calls.length, 2, 'a quota refusal is not a garble — no retry of the same entry');
+  assert.equal(r.json.provider, 'nano');
+
+  const all429 = providerStub([{ status: 429, text: 'rate limit exceeded' }]);
+  const r2 = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: all429 });
+  assert.equal(r2.code, 502);
+  assert.equal(all429.calls.length, 2, 'still exactly one attempt per entry');
+  assert.equal(r2.json.exhausted, true);
+  assert.deepEqual(r2.json.providers.map((p) => p.attempt), [1, 1]);
+});
+
+test('every 502 provider entry names its attempt, and the retry is attempt 2', async () => {
+  const fetchStub = providerStub(['not JSON at all']);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 502);
+  assert.equal(fetchStub.calls.length, 3, 'primary, primary retry, fallback — and then the cap');
+  assert.deepEqual(r.json.providers.map((p) => [p.provider, p.hop, p.attempt]),
+    [['nemotron', 1, 1], ['nemotron', 1, 2], ['nano', 1, 1]]);
+  assert.equal(r.json.exhausted, false, 'a garble is not a quota problem');
+});
+
+test('hop 2 gets the same single retry of its primary', async () => {
+  const fetchStub = providerStub([
+    { hits: [ESC_REPO, AFRO_PAGE], open: ['esc'] },   // hop 1, call 1
+    'the walk answered prose',                        // hop 2, call 2
+    { hits: [AFRO_SYM] },                             // hop 2, call 3 — the RETRY
+  ]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  assert.equal(r.json.calls, 3);
+  assert.equal(r.json.hops, 2);
+  assert.equal(r.json.partial, false, 'the retried walk answered');
+  assert.equal(r.json.provider, 'nemotron');
+  assert.equal(fetchStub.calls[1].body.model, fetchStub.calls[2].body.model,
+    'the hop-2 retry is the same entry too');
+  assert.equal(r.json.results[0].title, 'AfroESC');
+});
+
+test('the hop-1 prompt pulls the documenting page and the implementing repo together', async () => {
+  /* The 2026-09-05 measurement: on a valid answer the model returned ONE hit
+     (the repository, no setup page) and put a PROJECT name in `open`, which
+     validateOpen drops, so the walk never ran. These literals are the fix, and
+     they are pinned here because a prompt edit that quietly drops one of them
+     is invisible to every other test in this file. */
+  const fetchStub = providerStub([{ hits: [ESC_REPO], open: [] }]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  const system = fetchStub.calls[0].body.messages.find((m) => m.role === 'system').content;
+  for (const literal of ['documents it', 'implements it', 'single hit',
+                         'REPOSITORY NAMES', 'specific component']) {
+    assert.ok(system.includes(literal), `the hop-1 prompt must say "${literal}"`);
+  }
+  // the constraints the shape depends on are still stated
+  assert.match(system, /at most 12 words/);
+  assert.match(system, /at most 8/, 'the MAX_PICKS cap');
+  assert.match(system, /at most 3 repositories/, 'the MAX_OPEN_REPOS cap');
+  assert.match(system, /only when walk is true/);
+  assert.match(system, /STRICT JSON/);
+  assert.ok(system.length <= 1600,
+    `the hop-1 system prompt is ${system.length} chars — every char is paid on every search`);
+});
+
 test('all-429 failures report exhausted; a 429/503 mix does not', async () => {
   const all429 = providerStub([{ status: 429, text: 'rate limit exceeded' }]);
   const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
@@ -1249,14 +1406,71 @@ test('a repaired document whose hits array is empty is a parse failure, not an e
   // an un-repaired, genuinely well-formed empty answer is still a valid answer
   assert.deepEqual(handler.parseModelJson('{"hits":[]}').hits, []);
 
-  // end to end: the truncation now falls through to the other entry
-  const fetchStub = providerStub(['{"hits":[', { hits: [ESC_REPO], open: [] }]);
+  /* End to end, and STRICTLY STRONGER than the version this replaces: that one
+     stubbed ONE truncation and asserted the fallback answered on call 2. The
+     primary now gets one retry of itself after a parse failure, so the same
+     claim — a truncated empty answer never wins — has to survive the retry as
+     well. Two truncations, then the fallback: the truncation loses twice. */
+  const fetchStub = providerStub(['{"hits":[', '{"hits":[', { hits: [ESC_REPO], open: [] }]);
   return call('POST', { q: 'ESC I2C firmware', candidates: [] }, { env: KEYS, fetch: fetchStub })
     .then((r) => {
       assert.equal(r.code, 200);
       assert.equal(r.json.provider, 'nano', 'the truncated empty answer did not win');
-      assert.equal(fetchStub.calls.length, 2);
+      assert.equal(fetchStub.calls.length, 3, 'primary, primary retry, then the fallback');
     });
+});
+
+test('the measured garbled hop-1 answer is salvaged into its ids, not thrown away', () => {
+  /* MEASURED 2026-09-05, the SAME hop-1 request sent three times on the free
+     serving: nemotron super answered this once (finish_reason "stop") — a
+     broken string that swallows the `why` and closes nothing — answered with an
+     EMPTY body once, and answered valid JSON once. The wreck still carries the
+     model's own ids in its own order, and every one of them is resolved against
+     real data downstream, so reading them widens what is READ, never what is
+     trusted. Before this, that answer cost the fallback call and then a 502. */
+  const garbled = '{"hits":[{"id":"repo:esc],"open":["esc"]}';
+  const doc = handler.parseModelJson(garbled);
+  assert.deepEqual(doc.hits, [{ id: 'repo:esc', why: '' }]);
+  assert.deepEqual(doc.open, ['esc']);
+  assert.equal(doc.salvaged, true, 'a salvaged document says so');
+
+  // a `why` that survived the garble is kept with its own id
+  const partial = '{"hits":[{"id":"repo:esc","why":"ESC I2C driver"},{"id":"page:#/setup/x],"open":[]}';
+  const doc2 = handler.parseModelJson(partial);
+  assert.deepEqual(doc2.hits, [
+    { id: 'repo:esc', why: 'ESC I2C driver' },
+    { id: 'page:#/setup/x', why: '' },
+  ]);
+  assert.deepEqual(doc2.open, []);
+
+  // An EMPTY answer stays a provider failure: there is nothing to salvage, and
+  // silence must not be read as a confident "nothing matches".
+  assert.equal(handler.parseModelJson(''), null);
+  assert.equal(handler.parseModelJson('   '), null);
+  assert.equal(handler.parseModelJson(null), null);
+  assert.equal(handler.parseModelJson('I cannot help with that.'), null);
+  // An id running to the very end of the text is an answer still being written,
+  // which is closeOpenBrackets' business, not a garble — it is NOT salvaged.
+  assert.equal(handler.parseModelJson('{"hits":[{"id":"abc'), null);
+});
+
+test('a salvaged hop 1 answers the search instead of spending the fallback call', async () => {
+  const fetchStub = providerStub([
+    '{"hits":[{"id":"repo:esc],"open":["esc"]}',
+    { hits: [ESC_REPO, AFRO_PAGE, AFRO_SYM] },
+  ]);
+  const r = await call('POST', { q: 'ESC I2C firmware', candidates: [] },
+    { env: KEYS, fetch: fetchStub });
+  assert.equal(r.code, 200);
+  assert.equal(r.json.calls, 2, 'hop 1 salvaged on call 1; call 2 is the walk, not a retry');
+  assert.equal(r.json.hops, 2);
+  assert.equal(r.json.partial, false);
+  assert.equal(r.json.salvaged, true, 'the 200 records that an answer was salvaged');
+  assert.equal(r.json.provider, 'nemotron');
+  // the salvaged `open: ["esc"]` really opened the repository
+  assert.deepEqual(JSON.parse(userMessage(fetchStub.calls[1])).repos.map((x) => x.name), ['esc']);
+  assert.deepEqual(r.json.results.map((x) => x.href).slice(0, 2),
+    [ESC_URL, '#/setup/hippocampus-bringup/afro-esc']);
 });
 
 test('every response carries x-librarian-version: 2 — the zero-quota readiness probe', async () => {
