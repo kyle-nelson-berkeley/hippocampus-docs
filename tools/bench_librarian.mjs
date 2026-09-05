@@ -693,7 +693,8 @@ if (args.probes) {
   }
   const delay = args.delay !== null ? args.delay : PROBE_MIN_INTERVAL_MS;
   const willPost = runs.filter((r) => /\s/.test(r.q.trim())).length;
-  process.stdout.write(`librarian bench — ${runs.length} probes against ${base}\n`);
+  process.stdout.write(
+    `librarian bench — ${runs.length} probe${runs.length === 1 ? '' : 's'} against ${base}\n`);
   process.stdout.write(`  x-librarian-version: ${versionLine}\n`);
   process.stdout.write(`  local index: ${items.length} entries\n`);
   process.stdout.write(`  POSTs:       ${willPost} of ${runs.length} probes are multi-word\n`);
