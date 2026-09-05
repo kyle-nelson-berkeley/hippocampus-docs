@@ -1,39 +1,86 @@
 #!/usr/bin/env node
-/* bench_librarian — compare the librarian's two providers on real queries.
+/* bench_librarian — measure the librarian over HTTP, in two modes.
+
+   PROBE MODE — what a browser would actually render, per probe:
+
+     node tools/bench_librarian.mjs --probes
+     node tools/bench_librarian.mjs --probes --base http://127.0.0.1:8141 --delay 0
+     node tools/bench_librarian.mjs --probes --kind semantic
+     node tools/bench_librarian.mjs --probes --probe "motor mount CAD"
+
+   It runs data/search-probes.json through the REAL client engine — the very
+   functions js/search.js hands the browser (buildItems, searchItems,
+   projectCandidates, pickRows, mergePicks) — and mirrors the client's own
+   rules rather than approximating them:
+
+     - ROUTING. A single-word query never POSTs; a multi-word one always does,
+       INCLUDING when the keyword engine found nothing (candidates: []). Of the
+       twelve probes exactly five POST: three multi-word keyword probes and the
+       two semantic ones.
+     - THE SCHEMA CHECK. A 200 whose payload pickRows rejects — a bad href, a
+       row missing kind or title — is a librarian FAILURE for that probe, not a
+       silently smaller answer: rendered rank falls back to the local rank and
+       the notice path is taken. So a PASS here means the browser would render
+       the same rows, not merely that the function answered something.
+     - THE NOTICE SPLIT. On a non-2xx the body is parsed once: exhausted → the
+       quota notice, anything else → the unreachable notice. The row shows the
+       status it took (e.g. `502 exhausted`).
+
+   PROVIDER-COMPARISON MODE — which model answers better, on the KEYWORD probes:
 
      node tools/bench_librarian.mjs --base http://127.0.0.1:8131
      node tools/bench_librarian.mjs --base https://<deployment> --provider nemotron
-     node tools/bench_librarian.mjs --base https://<deployment> --delay 6000
+     node tools/bench_librarian.mjs --base https://<deployment> --delay 12000
 
-   PACING, AND WHY IT IS NOT OPTIONAL AGAINST A DEPLOYMENT. The function limits
-   one caller to 12 requests per rolling 60s window and rejects the 13th with a
-   429. Fired back-to-back, a 15-query run therefore loses its last queries to
-   the limiter on ANY hosted base — and those losses land in the error column,
-   where they are indistinguishable from a provider that actually failed. That
-   would make the harness lie in the one place it is meant to be trusted, so
-   requests to a non-loopback base are spaced out by default. A DIRECT loopback
-   request carries no x-forwarded-for and is exempt from the per-key budget, so
-   local runs against tools/dev_site.mjs stay unpaced and fast.
+   The semantic probes are excluded from it by construction: their `expect` is a
+   LIST and their bar is top-N, not rank 1, so they cannot be scored on the same
+   scale — and keeping the comparison at 15 queries x 2 providers = 30 requests
+   rather than 34 matters against a 50-a-day free cap. Rank is read off the
+   MERGED rows (pickRows + mergePicks, exactly as the client folds an answer
+   into the local list), never off the raw id list, because the raw ids are not
+   what anybody sees.
+
+   PACING, AND WHY IT IS NOT OPTIONAL. The function limits one caller to 6
+   requests per rolling 60s window (one request is now up to three upstream
+   calls) and 429s the seventh. Fired back-to-back, a run loses its last queries
+   to the limiter — and those losses land in the error column, where they are
+   indistinguishable from a provider that actually failed. So requests are
+   spaced by 12,000ms: in PROBE mode on EVERY base, loopback included, because
+   the per-key exemption does not protect the upstream's own 20-calls-a-minute
+   free ceiling and one probe can spend three of them; in comparison mode on
+   hosted bases only, where a direct loopback request carries no
+   x-forwarded-for and is exempt from the per-key budget. `--delay 0` disables
+   it — the right thing against tools/dev_site.mjs's mock, which calls nobody.
 
    It talks HTTP to a running site and nothing else: it never imports
    api/librarian.js, so it runs unchanged in a checkout that has no api/
    directory (the GitHub Pages copy) — it will simply report that the base URL
-   has no librarian.
+   has no librarian. Before the first query it GETs the function once and prints
+   the `x-librarian-version` it answers with, so a run against a stale
+   deployment is visible in line one instead of being read as bad ranking. That
+   GET is refused with a 405 before the handler reads a body, checks an origin
+   or touches the rate limiter, so it costs no quota and no limiter slot.
 
    The candidates it sends are the REAL ones. It loads the search shards off
    disk and runs js/search.js's own local engine over them, so the prompt the
    function builds during a bench run is byte-for-byte the prompt it builds for
    a browser.
 
-   WHAT A RESULT MEANS. A winner is declared only when BOTH providers answered
-   all 15 queries error-free. Anything else prints BLOCKED and the default
-   provider order stays provisional. That rule exists so a provider can never
-   "win" by being the only one with a key configured: the zero-key run and the
-   one-key run reach exactly the same verdict — no winner.
+   WHAT A COMPARISON RESULT MEANS. A winner is declared only when BOTH providers
+   answered all 15 queries error-free. Anything else prints BLOCKED and the
+   default provider order stays provisional. That rule exists so a provider can
+   never "win" by being the only one with a key configured: the zero-key run and
+   the one-key run reach exactly the same verdict — no winner.
 
    NOT A BENCHMARK OUTCOME: both entries are FREE variants by Kyle's decision
    (2026-09-04, "set and forget") and never a Llama-family model by policy. No
    number this script prints can put a paid or Llama model on the ballot.
+
+   AND NOT A QUALITY MEASUREMENT AGAINST A MOCK. Run against
+   `tools/dev_site.mjs --mock-provider=graph`, every number below describes
+   PLUMBING — ids resolving, rows merging, the render surviving — because that
+   mock ranks by token overlap. A semantic probe failing there is expected and
+   means nothing about the real librarian.
 
    BOTH ENTRIES CURRENTLY SHARE ONE GATEWAY (OpenRouter), so this compares two
    MODELS, not two vendors. A winner here settles which model answers first, and
@@ -48,7 +95,11 @@ const ROOT = path.resolve(new URL('..', import.meta.url).pathname);
 const HC = require(path.join(ROOT, 'js', 'search.js'));
 
 const PROVIDERS = ['nemotron', 'nano'];
+const KINDS = ['semantic', 'keyword'];
 const REQUEST_TIMEOUT_MS = 30000;   // above the function's own 15s ceiling
+// dev_site.mjs's own default port: probe mode is the local-first mode, so it
+// has a working default and --base is optional there.
+const DEFAULT_BASE = 'http://127.0.0.1:8131';
 
 /* 15 queries. The first ten are data/search-probes.json verbatim — the standing
    regression set — and the last five are multi-word queries drawn from real
@@ -70,9 +121,17 @@ const EXTRA_QUERIES = [
 
 // ------------------------------------------------------------------ pacing --
 
-/* 10 requests per 60s against a limiter that allows 12 — two spare slots, so
-   ordinary network jitter cannot push the run over the edge. */
-const HOSTED_MIN_INTERVAL_MS = 6000;
+/* 5 requests per 60s against a limiter that now allows 6 — one spare slot, so
+   ordinary network jitter cannot push the run over the edge. It was 6000ms
+   when the limiter allowed 12; halving the budget doubles the interval. */
+const HOSTED_MIN_INTERVAL_MS = 12000;
+/* Probe mode paces on EVERY base, loopback included. The per-key exemption a
+   direct loopback request enjoys is the FUNCTION's limiter, and that is not
+   the binding constraint any more: one probe is up to three upstream calls
+   against a free tier that allows 20 a minute, and a loopback dev server
+   forwards to exactly the same upstream a deployment does. Against a mock,
+   pass --delay 0. */
+const PROBE_MIN_INTERVAL_MS = 12000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -87,11 +146,33 @@ function isLoopbackBase(base) {
 // -------------------------------------------------------------------- args --
 
 function parseArgs(argv) {
-  const out = { base: null, providers: PROVIDERS.slice(), delay: null };
+  const out = {
+    base: null, providers: PROVIDERS.slice(), delay: null,
+    probes: false, kind: null, probe: null, pinned: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--help' || arg === '-h') { out.help = true; continue; }
-    let m = arg.match(/^--base(?:=(.*))?$/);
+    if (arg === '--probes') { out.probes = true; continue; }
+    let m = arg.match(/^--kind(?:=(.*))?$/);
+    if (m) {
+      const value = m[1] !== undefined ? m[1] : argv[++i];
+      if (KINDS.indexOf(value) === -1) {
+        throw new Error(`--kind must be one of ${KINDS.join('|')}`);
+      }
+      out.kind = value;
+      continue;
+    }
+    m = arg.match(/^--probe(?:=(.*))?$/);
+    if (m) {
+      const value = m[1] !== undefined ? m[1] : argv[++i];
+      if (typeof value !== 'string' || !value.trim()) {
+        throw new Error('--probe needs the query text of a probe, e.g. --probe "motor mount CAD"');
+      }
+      out.probe = value.trim();
+      continue;
+    }
+    m = arg.match(/^--base(?:=(.*))?$/);
     if (m) { out.base = m[1] !== undefined ? m[1] : argv[++i]; continue; }
     m = arg.match(/^--delay(?:=(.*))?$/);
     if (m) {
@@ -110,16 +191,45 @@ function parseArgs(argv) {
         throw new Error(`--provider must be one of ${PROVIDERS.join('|')}`);
       }
       out.providers = [value];
+      out.pinned = true;
       continue;
     }
     throw new Error(`unknown argument ${JSON.stringify(arg)}`);
+  }
+  // Flags that only mean something in one mode are REFUSED in the other rather
+  // than ignored: a silently dropped --kind would have the run print twelve
+  // rows and look like it obeyed.
+  if (!out.probes && (out.kind || out.probe)) {
+    throw new Error('--kind and --probe belong to --probes mode');
+  }
+  if (out.probes && out.pinned) {
+    // The browser cannot pin a provider, and probe mode's whole claim is that
+    // it does exactly what the browser does.
+    throw new Error('--provider belongs to the comparison mode: probe mode mirrors the client, which never pins one');
   }
   return out;
 }
 
 // ------------------------------------------------------------- the queries --
 
-const fileOf = (href) => String(href).replace(/#L\d+$/, '');
+/* A probe names the FILE it expects; the winning row may be the symbol inside
+   that file (same URL plus a #L<line> anchor) or, for a page, the heading
+   inside it (same route plus an @anchor). The probe is satisfied either way,
+   so both anchors come off before the comparison — the same normalisation
+   tools/tests/test_search_routing.mjs does on its side. */
+const fileOf = (href) => {
+  const s = String(href == null ? '' : href);
+  if (s.startsWith('#/')) return s.split('@')[0];
+  return s.replace(/#L\d+$/, '');
+};
+
+/* 1-based rank of the first row pointing at `expect`, or 0 when it is absent. */
+function rankOf(rows, expect) {
+  const want = fileOf(expect);
+  return (Array.isArray(rows) ? rows : []).findIndex((r) => fileOf(r && r.href) === want) + 1;
+}
+
+const rankText = (rank) => (rank > 0 ? String(rank) : '—');
 
 function loadItems() {
   const manifest = JSON.parse(
@@ -129,10 +239,20 @@ function loadItems() {
   return HC.buildItems(shards);
 }
 
-function buildCases(items) {
-  const probes = JSON.parse(
+function readProbes() {
+  return JSON.parse(
     fs.readFileSync(path.join(ROOT, 'data', 'search-probes.json'), 'utf8')).probes;
-  const wanted = probes.map((p) => ({ q: p.q, expect: p.expect, note: p.kind }))
+}
+
+/* The comparison set: the KEYWORD probes verbatim plus the five extra queries.
+   The semantic probes are filtered out here and nowhere else — one line, so
+   the reason for it stays next to it. Their `expect` is a list of strings and
+   their bar is "inside the top N", which is not the same measurement as "rank
+   1" and cannot share a column with it. */
+function buildCases(items) {
+  const wanted = readProbes()
+    .filter((p) => p.kind !== 'semantic')
+    .map((p) => ({ q: p.q, expect: p.expect, note: p.kind }))
     .concat(EXTRA_QUERIES);
 
   const cases = [];
@@ -140,28 +260,101 @@ function buildCases(items) {
     const local = HC.searchItems(items, w.q);
     const candidates = HC.projectCandidates(local.results);
     const ids = HC.assignIds(local.results);
-    const localRank = local.results.findIndex((r) => fileOf(r.href) === fileOf(w.expect)) + 1;
+    const localRank = rankOf(local.results, w.expect);
     const expectId = localRank > 0 ? ids[localRank - 1] : null;
     const inCandidates = expectId !== null
       && candidates.some((c) => c.id === expectId);
     cases.push({
-      q: w.q, note: w.note, expect: w.expect, expectId, localRank, inCandidates, candidates,
+      q: w.q, note: w.note, expect: w.expect, expectId, localRank, inCandidates,
+      candidates, localResults: local.results,
     });
   }
   return cases;
 }
 
+/* The probe set: every probe in the file, in file order, narrowed by --kind
+   and --probe. `expects` is always a list and `top` always a number, so the
+   keyword and semantic bars are two settings of one comparison rather than two
+   code paths: keyword probes want their single link at rank 1, semantic probes
+   want every listed link inside the top `top`. */
+function buildProbeRuns(kind, only) {
+  const runs = readProbes()
+    .filter((p) => {
+      if (kind === 'semantic') return p.kind === 'semantic';
+      if (kind === 'keyword') return p.kind !== 'semantic';
+      return true;
+    })
+    .filter((p) => (only ? String(p.q).trim().toLowerCase() === only.toLowerCase() : true))
+    .map((p) => {
+      const semantic = p.kind === 'semantic';
+      return {
+        q: String(p.q),
+        kind: String(p.kind || ''),
+        semantic,
+        expects: semantic ? p.expect.slice() : [p.expect],
+        fair: Array.isArray(p.fair) ? p.fair.slice() : [],
+        top: semantic ? Number(p.top) : 1,
+      };
+    });
+  if (only && !runs.length) {
+    throw new Error(`--probe ${JSON.stringify(only)} matches no probe in data/search-probes.json`);
+  }
+  return runs;
+}
+
 // -------------------------------------------------------------- the client --
 
+const endpoint = (base) => `${String(base).replace(/\/+$/, '')}/api/librarian`;
+
+/* An Origin the handler accepts on any base: its OWN. A loopback origin passes
+   the localhost branch of originAllowed(); a hosted one equals the request's
+   Host header and passes the same-origin branch. Sending it (rather than
+   sending none, which is also allowed) means the bench exercises the gate a
+   browser goes through instead of the one curl gets waved past. */
+function originFor(base) {
+  try { return new URL(String(base)).origin; } catch (e) { return null; }
+}
+
+function headersFor(base) {
+  const origin = originFor(base);
+  const headers = { 'content-type': 'application/json' };
+  if (origin) headers.origin = origin;
+  return headers;
+}
+
+/* The deployment's own version stamp, for free. A GET is refused with 405
+   BEFORE the handler reads a body, checks the origin or touches the rate
+   limiter, so this spends no quota and no limiter slot — it is the readiness
+   probe, and it is here so a run against a stale deployment reads as a stale
+   deployment rather than as a bad model. */
+async function askVersion(base) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(endpoint(base), {
+      method: 'GET', headers: headersFor(base), signal: ctrl.signal,
+    });
+    return { status: res.status, version: res.headers.get('x-librarian-version') };
+  } catch (e) {
+    return { status: 0, reason: String((e && e.message) || e) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* One POST, reported RAW: the status, the parsed body if there was one, and
+   the wall time. Nothing is judged here — probe mode has to mirror the
+   client's own reading of a non-2xx (exhausted or not) and the comparison mode
+   wants its own error strings, so a verdict baked in at this level would have
+   to be unpicked by both. `status: 0` means the request never completed. */
 async function ask(base, body) {
-  const url = `${base.replace(/\/+$/, '')}/api/librarian`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
   const started = Date.now();
   try {
-    const res = await fetch(url, {
+    const res = await fetch(endpoint(base), {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: headersFor(base),
       body: JSON.stringify(body),
       signal: ctrl.signal,
     });
@@ -169,25 +362,37 @@ async function ask(base, body) {
     const ms = Date.now() - started;
     let doc = null;
     try { doc = JSON.parse(text); } catch (e) { /* keep the raw text as the reason */ }
-    if (!res.ok) {
-      const detail = doc && Array.isArray(doc.providers)
-        ? doc.providers.map((p) => `${p.provider}: ${p.reason}`).join('; ')
-        : (doc && doc.error) || text.slice(0, 160);
-      return { ok: false, ms, status: res.status, reason: `HTTP ${res.status} — ${detail}` };
-    }
-    if (!doc || !Array.isArray(doc.results)) {
-      return { ok: false, ms, status: res.status, reason: 'answer was not the agreed JSON shape' };
-    }
-    return { ok: true, ms, status: res.status, doc };
+    return { ms, status: res.status, doc, text, version: res.headers.get('x-librarian-version') };
   } catch (e) {
     const ms = Date.now() - started;
     const reason = e && e.name === 'AbortError'
       ? `timed out after ${REQUEST_TIMEOUT_MS}ms`
       : String((e && e.message) || e);
-    return { ok: false, ms, status: 0, reason };
+    return { ms, status: 0, doc: null, text: '', reason };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/* The comparison mode's verdict on one answer: 2xx, the agreed shape, and a
+   payload the CLIENT would accept — a body pickRows rejects never reaches a
+   browser, so counting it as an answer here would score rows nobody sees. */
+function judge(out) {
+  if (out.status === 0) return { ok: false, reason: out.reason };
+  if (out.status < 200 || out.status >= 300) {
+    const detail = out.doc && Array.isArray(out.doc.providers)
+      ? out.doc.providers.map((p) => `${p.provider}: ${p.reason}`).join('; ')
+      : (out.doc && out.doc.error) || String(out.text).slice(0, 160);
+    return { ok: false, reason: `HTTP ${out.status} — ${detail}` };
+  }
+  if (!out.doc || !Array.isArray(out.doc.results)) {
+    return { ok: false, reason: 'answer was not the agreed JSON shape' };
+  }
+  const rows = HC.pickRows(out.doc);
+  if (!rows) {
+    return { ok: false, reason: 'the answer failed the client schema check (pickRows)' };
+  }
+  return { ok: true, rows };
 }
 
 // ------------------------------------------------------------------ report --
@@ -222,21 +427,30 @@ async function runProvider(base, provider, cases, delay) {
     lastRequestStartedAt = Date.now();
     const out = await ask(base, { q: c.q, candidates: c.candidates, provider });
     row.latencies.push(out.ms);
-    if (!out.ok) {
+    const verdict = judge(out);
+    if (!verdict.ok) {
       row.errors += 1;
-      if (!row.firstError) row.firstError = out.reason;
-      row.perQuery.push({ q: c.q, ok: false, reason: out.reason });
+      if (!row.firstError) row.firstError = verdict.reason;
+      row.perQuery.push({ q: c.q, ok: false, reason: verdict.reason });
       continue;
     }
     row.answered += 1;
     if (typeof out.doc.promptChars === 'number') row.promptChars.push(out.doc.promptChars);
     row.temperatures.add(out.doc.temperature);
     row.models.add(out.doc.model);
-    const ids = out.doc.results.map((r) => r.id);
-    const at = ids.indexOf(c.expectId) + 1;
+    /* Scored on the MERGED list — what the browser would show — not on the raw
+       ids. The two differ: the answer may carry rows the local index never had,
+       the pin may move the leader, and rows the client refuses never appear.
+       "in picks" therefore means "above the divider", i.e. the librarian
+       actually promoted it, rather than the vacuous "somewhere in the merged
+       list", which every local hit satisfies by construction. */
+    const merged = HC.mergePicks(c.localResults, verdict.rows, c.q);
+    const at = rankOf(merged.results, c.expect);
     if (at === 1) row.top1 += 1;
-    if (at > 0) row.inPicks += 1;
-    row.perQuery.push({ q: c.q, ok: true, rank: at || null, picks: ids.length, ms: out.ms });
+    if (at > 0 && at <= merged.librarianCount) row.inPicks += 1;
+    row.perQuery.push({
+      q: c.q, ok: true, rank: at || null, picks: merged.librarianCount, ms: out.ms,
+    });
   }
   return row;
 }
@@ -277,6 +491,155 @@ function printProvider(row, total) {
   return out.join('\n');
 }
 
+// -------------------------------------------------------------- probe mode --
+
+/* One probe, run the way the browser runs it. Everything that decides an
+   outcome here is imported from js/search.js, so this cannot drift from the
+   client by being reimplemented: only the ROUTING decision (single word or
+   not) is written out, and it is written out in the client's own words. */
+async function runProbe(base, probe, items, delay) {
+  const started = Date.now();
+  const local = HC.searchItems(items, probe.q);
+  const trimmed = probe.q.trim();
+  const row = {
+    q: probe.q, kind: probe.kind, semantic: probe.semantic, top: probe.top,
+    localRank: rankOf(local.results, probe.expects[0]),
+    posted: false, calls: null, hops: null, fnMs: null,
+    provider: 'local', notice: null, rendered: local.results, librarianCount: 0,
+  };
+
+  const settle = () => {
+    row.wallMs = Date.now() - started;
+    row.ranks = probe.expects.map((e) => rankOf(row.rendered, e));
+    row.fairRanks = probe.fair.map((e) => rankOf(row.rendered, e));
+    row.pass = row.ranks.length > 0 && row.ranks.every((r) => r > 0 && r <= probe.top);
+    return row;
+  };
+
+  // The routing rule, verbatim from js/search.js: a single word is answered by
+  // the local index with ZERO network, whatever it found.
+  if (!/\s/.test(trimmed)) {
+    row.provider = 'none (single word)';
+    return settle();
+  }
+
+  if (delay) {
+    const since = Date.now() - lastRequestStartedAt;
+    if (lastRequestStartedAt && since < delay) await sleep(delay - since);
+  }
+  lastRequestStartedAt = Date.now();
+  row.posted = true;
+  // candidates MAY be empty — a multi-word query the keyword engine cannot
+  // answer is exactly the one the walk exists for, and the client posts it.
+  const out = await ask(base, { q: trimmed, candidates: HC.projectCandidates(local.results) });
+  row.status = out.status;
+
+  if (out.status === 0) {
+    row.provider = 'unreachable';
+    row.notice = HC.LIBRARIAN_NOTICE;
+    row.reason = out.reason;
+    return settle();                         // local order, untouched
+  }
+  const verdict = HC.classifyStatus(out.status);
+  if (verdict === 'absent') {
+    // 404/405/501: this host has no function. The client latches and shows
+    // nothing at all — not even a notice.
+    row.provider = `${out.status} absent`;
+    return settle();
+  }
+  if (verdict !== 'ok') {
+    // ONE body read decides which truth the notice tells, exactly as the
+    // client decides it.
+    const spent = Boolean(out.doc && typeof out.doc === 'object' && out.doc.exhausted === true);
+    row.provider = `${out.status} ${spent ? 'exhausted' : 'unreachable'}`;
+    row.notice = spent ? HC.LIBRARIAN_QUOTA_NOTICE : HC.LIBRARIAN_NOTICE;
+    row.reason = out.doc && Array.isArray(out.doc.providers)
+      ? out.doc.providers.map((p) => `${p.provider} hop ${p.hop}: ${p.reason}`).join('; ')
+      : (out.doc && out.doc.error) || String(out.text).slice(0, 160);
+    return settle();
+  }
+
+  if (typeof out.doc.calls === 'number') row.calls = out.doc.calls;
+  if (typeof out.doc.hops === 'number') row.hops = out.doc.hops;
+  if (typeof out.doc.ms === 'number') row.fnMs = out.doc.ms;
+  row.partial = Boolean(out.doc.partial);
+
+  const rows = HC.pickRows(out.doc);
+  if (!rows) {
+    // A payload the client refuses is a librarian FAILURE, not a thin answer:
+    // the browser would show the local list and the notice, so that is what
+    // this row reports and what it is graded on.
+    row.provider = 'schema failure';
+    row.notice = HC.LIBRARIAN_NOTICE;
+    return settle();
+  }
+  const merged = HC.mergePicks(local.results, rows, trimmed);
+  row.rendered = merged.results;
+  row.librarianCount = merged.librarianCount;
+  row.provider = String(out.doc.provider || 'answered') + (row.partial ? ' (partial)' : '');
+  return settle();
+}
+
+const COLUMNS = ['q', 'kind', 'local', 'rendered', 'calls', 'hops', 'provider', 'wall ms', ''];
+
+function probeTable(rows) {
+  const cells = rows.map((r) => [
+    r.q,
+    r.kind,
+    rankText(r.localRank),
+    r.ranks.map(rankText).join(','),
+    r.calls === null ? '—' : String(r.calls),
+    r.hops === null ? '—' : String(r.hops),
+    r.provider,
+    r.posted ? String(r.wallMs) : '—',
+    r.pass ? 'PASS' : 'FAIL',
+  ]);
+  const widths = COLUMNS.map((h, i) =>
+    Math.max(h.length, ...cells.map((c) => c[i].length)));
+  const line = (c) => c.map((v, i) => (i === c.length - 1 ? v : v.padEnd(widths[i]))).join('  ');
+  const out = [`  ${line(COLUMNS)}`, `  ${widths.map((w) => '-'.repeat(w)).join('  ')}`];
+  for (const c of cells) out.push(`  ${line(c)}`);
+  return out.join('\n');
+}
+
+function probeReport(rows) {
+  const out = [];
+  const posted = rows.filter((r) => r.posted);
+  const calls = posted.filter((r) => r.calls !== null).map((r) => r.calls);
+  const slowest = posted.slice().sort((a, b) => b.wallMs - a.wallMs)[0];
+  const passed = rows.filter((r) => r.pass).length;
+
+  out.push('');
+  out.push(`  POSTed          ${posted.length}/${rows.length} searches (single-word probes never reach the network)`);
+  out.push(slowest
+    ? `  slowest search  ${JSON.stringify(slowest.q)} ${slowest.wallMs}ms wall`
+    : '  slowest search  n/a (nothing was POSTed)');
+  out.push(calls.length
+    ? `  mean calls      ${(calls.reduce((a, b) => a + b, 0) / calls.length).toFixed(2)} per POSTed search `
+      + `(${calls.reduce((a, b) => a + b, 0)} model calls over ${calls.length} answers)`
+    : '  mean calls      n/a (no search was answered)');
+  out.push(`  passed          ${passed}/${rows.length}`);
+
+  const timed = posted.filter((r) => r.fnMs !== null);
+  if (timed.length) {
+    out.push('  function ms     (the function\'s own clock, per POSTed probe)');
+    for (const r of timed) {
+      out.push(`                  ${String(r.fnMs).padStart(6)}ms  ${JSON.stringify(r.q)}`);
+    }
+  }
+  const notices = rows.filter((r) => r.notice);
+  for (const r of notices) {
+    out.push(`  notice          ${JSON.stringify(r.q)} → ${r.notice}`);
+    if (r.reason) out.push(`                  ${String(r.reason).slice(0, 200)}`);
+  }
+  const fair = rows.filter((r) => r.fairRanks.length);
+  for (const r of fair) {
+    out.push(`  fair extras     ${JSON.stringify(r.q)} → ${r.fairRanks.map(rankText).join(', ')} `
+      + '(informational: acceptable, never required)');
+  }
+  return out.join('\n');
+}
+
 // -------------------------------------------------------------------- main --
 
 let args;
@@ -286,27 +649,83 @@ try {
   process.stderr.write(`${e.message}\n`);
   process.exit(1);
 }
-if (args.help || !args.base) {
-  process.stdout.write(
-    'usage: node tools/bench_librarian.mjs --base <url> [--provider nemotron|nano] [--delay <ms>]\n'
-    + '  --base is required; it is the site root, e.g. http://127.0.0.1:8131\n'
-    + '  --delay spaces requests out; it defaults to '
-    + `${HOSTED_MIN_INTERVAL_MS}ms against a hosted base and 0 against loopback,\n`
-    + '          because the deployed function 429s the 13th request in any 60s window.\n'
-    + '          Pass 0 to disable it; expect rate-limit errors if you do.\n');
+const USAGE =
+  'usage: node tools/bench_librarian.mjs --base <url> [--provider nemotron|nano] [--delay <ms>]\n'
+  + '       node tools/bench_librarian.mjs --probes [--base <url>] [--delay <ms>]'
+  + ' [--kind semantic|keyword] [--probe "<q>"]\n'
+  + '  --probes runs data/search-probes.json through the real client engine and prints, per\n'
+  + '          probe, the local rank, the RENDERED rank, calls, hops, provider and wall time.\n'
+  + `          --base is optional here and defaults to ${DEFAULT_BASE}.\n`
+  + '          --kind narrows to the 10 keyword probes (3 POSTs) or the 2 semantic ones (2 POSTs);\n'
+  + '          --probe runs a single probe by its exact query text.\n'
+  + '  --base is required in comparison mode; it is the site root, e.g. http://127.0.0.1:8131\n'
+  + '  --delay spaces requests out. In --probes mode it defaults to '
+  + `${PROBE_MIN_INTERVAL_MS}ms on EVERY base,\n`
+  + '          loopback included: one probe is up to three upstream calls against a free tier\n'
+  + '          that allows 20 a minute. In comparison mode it defaults to '
+  + `${HOSTED_MIN_INTERVAL_MS}ms against a\n`
+  + '          hosted base and 0 against loopback, because the deployed function 429s the 7th\n'
+  + '          request in any 60s window. Pass 0 to disable it — the right thing against\n'
+  + '          tools/dev_site.mjs --mock-provider=graph, which calls no provider at all.\n';
+
+if (args.help || (!args.probes && !args.base)) {
+  process.stdout.write(USAGE);
   process.exit(args.help ? 0 : 1);
 }
 
+const base = args.base || DEFAULT_BASE;
 const items = loadItems();
+
+/* Printed before anything is measured: a run against a deployment that predates
+   the walk would otherwise look like a run against a bad model. */
+const stamp = await askVersion(base);
+const versionLine = stamp.status === 0
+  ? `unreachable (${stamp.reason})`
+  : `${stamp.version || 'ABSENT — this deployment predates the walk'} (GET answered ${stamp.status}, zero quota)`;
+
+if (args.probes) {
+  let runs;
+  try {
+    runs = buildProbeRuns(args.kind, args.probe);
+  } catch (e) {
+    process.stderr.write(`${e.message}\n`);
+    process.exit(1);
+  }
+  const delay = args.delay !== null ? args.delay : PROBE_MIN_INTERVAL_MS;
+  const willPost = runs.filter((r) => /\s/.test(r.q.trim())).length;
+  process.stdout.write(`librarian bench — ${runs.length} probes against ${base}\n`);
+  process.stdout.write(`  x-librarian-version: ${versionLine}\n`);
+  process.stdout.write(`  local index: ${items.length} entries\n`);
+  process.stdout.write(`  POSTs:       ${willPost} of ${runs.length} probes are multi-word\n`);
+  process.stdout.write(delay
+    ? `  pacing:      ${delay}ms between POSTs, on every base\n`
+    : '  pacing:      none (--delay 0)\n');
+  process.stdout.write('\n');
+
+  const probeRows = [];
+  for (const probe of runs) probeRows.push(await runProbe(base, probe, items, delay));
+  process.stdout.write(`${probeTable(probeRows)}\n`);
+  process.stdout.write(`${probeReport(probeRows)}\n`);
+  process.stdout.write(
+    '\n  PASS means the BROWSER would render it: keyword probes at rendered rank 1, semantic\n'
+    + '  probes with every expected link inside the top N. Against a mock provider these\n'
+    + '  numbers describe plumbing only — the mock ranks by token overlap, not by meaning.\n');
+  process.exit(0);
+}
+
 const cases = buildCases(items);
 const delay = args.delay !== null
   ? args.delay
-  : (isLoopbackBase(args.base) ? 0 : HOSTED_MIN_INTERVAL_MS);
-process.stdout.write(`librarian bench — ${cases.length} queries against ${args.base}\n`);
+  : (isLoopbackBase(base) ? 0 : HOSTED_MIN_INTERVAL_MS);
+process.stdout.write(`librarian bench — ${cases.length} queries against ${base}\n`);
+process.stdout.write(`  x-librarian-version: ${versionLine}\n`);
 process.stdout.write(`  local index: ${items.length} entries\n`);
 process.stdout.write(delay
-  ? `  pacing:      ${delay}ms between requests (the function 429s the 13th in any 60s window)\n`
+  ? `  pacing:      ${delay}ms between requests (the function 429s the 7th in any 60s window)\n`
   : '  pacing:      none (loopback base is exempt from the per-key budget)\n');
+process.stdout.write(
+  '  scope:       the 10 keyword probes + 5 extra queries; the 2 semantic probes are\n'
+  + '               scored by --probes instead (their bar is top-N, not rank 1)\n');
 const unusable = cases.filter((c) => !c.inCandidates);
 for (const c of unusable) {
   process.stdout.write(
@@ -317,7 +736,7 @@ process.stdout.write('\n');
 
 const rows = [];
 for (const provider of args.providers) {
-  rows.push(await runProvider(args.base, provider, cases, delay));
+  rows.push(await runProvider(base, provider, cases, delay));
 }
 for (const row of rows) process.stdout.write(`${printProvider(row, cases.length)}\n\n`);
 
