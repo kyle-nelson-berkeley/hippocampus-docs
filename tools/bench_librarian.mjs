@@ -350,6 +350,10 @@ async function askVersion(base) {
 async function ask(base, body) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  /* `ms` measures the REQUEST ONLY. Both callers sleep for pacing BEFORE they
+     call in here, so the wait that spaces requests is outside this clock and
+     is never reported as latency — the same invariant probe mode keeps by
+     re-stamping its own mark just before this call. */
   const started = Date.now();
   try {
     const res = await fetch(endpoint(base), {
@@ -498,7 +502,13 @@ function printProvider(row, total) {
    client by being reimplemented: only the ROUTING decision (single word or
    not) is written out, and it is written out in the client's own words. */
 async function runProbe(base, probe, items, delay) {
-  const started = Date.now();
+  /* Wall ms measures the REQUEST ONLY, never the pacing wait: this mark is
+     RE-STAMPED just before the fetch (below), after the sleep that spaces
+     requests. Stamped once up here it counted the sleep, and a probe the
+     function answered in 311ms was reported as 1673ms wall — enough to name
+     the wrong probe "slowest search". Pacing itself is unchanged: `delay`
+     still spaces request STARTS. */
+  let measuredFrom = Date.now();
   const local = HC.searchItems(items, probe.q);
   const trimmed = probe.q.trim();
   const row = {
@@ -509,7 +519,7 @@ async function runProbe(base, probe, items, delay) {
   };
 
   const settle = () => {
-    row.wallMs = Date.now() - started;
+    row.wallMs = Date.now() - measuredFrom;
     row.ranks = probe.expects.map((e) => rankOf(row.rendered, e));
     row.fairRanks = probe.fair.map((e) => rankOf(row.rendered, e));
     row.pass = row.ranks.length > 0 && row.ranks.every((r) => r > 0 && r <= probe.top);
@@ -531,7 +541,9 @@ async function runProbe(base, probe, items, delay) {
   row.posted = true;
   // candidates MAY be empty — a multi-word query the keyword engine cannot
   // answer is exactly the one the walk exists for, and the client posts it.
-  const out = await ask(base, { q: trimmed, candidates: HC.projectCandidates(local.results) });
+  const candidates = HC.projectCandidates(local.results);
+  measuredFrom = Date.now();   // the wall clock starts HERE: the pacing wait is over.
+  const out = await ask(base, { q: trimmed, candidates });
   row.status = out.status;
 
   if (out.status === 0) {
