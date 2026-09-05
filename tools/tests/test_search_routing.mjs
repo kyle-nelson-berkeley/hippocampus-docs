@@ -1018,3 +1018,28 @@ test('pin: no answer no pin', async () => {
     assert.deepEqual(out.results, before, `${label}: byte-identical local ordering`);
   }
 });
+
+// =====================================================================
+//  js/app.js, read as source (it is a browser file: no DOM under node)
+// =====================================================================
+
+const APP_JS = path.join(ROOT, 'js', 'app.js');
+
+test('js/app.js escapes the librarian why line like every other field', () => {
+  /* `why` is MODEL-authored text about a user-controlled, URL-shareable query,
+     so it is the least trusted string on the page. Same shape of check as the
+     handler suite's "no Vercel helper" test: read the source, not the DOM. */
+  const src = fs.readFileSync(APP_JS, 'utf8');
+  assert.ok(src.includes('esc(r.why)'), 'the why line goes through esc()');
+  assert.ok(!/\$\{\s*r\.why\s*\}/.test(src), 'and is never interpolated raw');
+});
+
+test('js/app.js paints the waiting line and always yields to the final paint', () => {
+  const src = fs.readFileSync(APP_JS, 'utf8');
+  assert.ok(src.includes("repo: 'repository'"), 'a repository row needs a label of its own');
+  assert.ok(src.includes('No keyword matches — asking the librarian…'), 'the waiting line');
+  assert.ok(src.includes('HCSearch.librarianLatched()'),
+    'never shown on a host where the librarian is latched off');
+  assert.ok(/painted\.waiting/.test(src),
+    'the repaint-skip guard is bypassed after a waiting paint, on every host');
+});

@@ -398,20 +398,32 @@
   }
 
   // ---------- search (precomputed static index; see js/search.js) ----------
-  const KIND_LABEL = { page: 'page', class: 'class', fn: 'function', file: 'file', cad: 'CAD part', fork: 'fork file' };
+  const KIND_LABEL = { page: 'page', class: 'class', fn: 'function', file: 'file', cad: 'CAD part', fork: 'fork file', repo: 'repository' };
 
+  /* `why` is the librarian's one-line reason for a row: MODEL-authored text
+     about a user-controlled, URL-shareable query, so it is the least trusted
+     string on this page and goes through esc() like every other field. */
   const searchRow = (r) => `
       <div class="result">
         <a class="title" href="${esc(r.href)}"${r.href.startsWith('http') ? ' target="_blank" rel="noopener"' : ''}>${esc(r.title)}</a>
         <span class="where">${esc(r.where)} · ${esc(KIND_LABEL[r.kind] || r.kind)}</span>
-        <p>${esc(r.snippet)}</p>
+        <p>${esc(r.snippet)}</p>${r.why ? `
+        <p class="why">${esc(r.why)}</p>` : ''}
       </div>`;
 
   /* Two paints, one view. The local ranking lands the moment it exists, so a
      search is as instant as it has always been; if the librarian answers, the
      same view is repainted with its picks on top. Both paints are guarded by
      the route epoch, and the repaint is skipped when nothing actually changed
-     (a single-word query, or a host with no librarian at all). */
+     (a single-word query, or a host with no librarian at all).
+
+     The one exception is the WAITING paint: a multi-word query the keyword
+     index answered with nothing is still out with the librarian, so the first
+     paint says so instead of announcing "No results" for a search that has not
+     finished. That paint must ALWAYS be replaced — including on a host with no
+     function at all, where the final answer is the same empty array by
+     reference and the skip guard would otherwise leave the waiting line up
+     forever — so a waiting paint bypasses the guard. */
   async function viewSearch(query) {
     sidebar.innerHTML = '';
     setTitle([`Search: ${query}`]);
@@ -421,11 +433,19 @@
 
     const paint = (res) => {
       if (epoch !== routeEpoch) return;             // a newer navigation owns the view
-      if (painted && painted.results === res.results
+      if (painted && !painted.waiting
+          && painted.results === res.results
           && painted.librarianCount === res.librarianCount
           && painted.notice === res.notice) return;  // nothing changed: no repaint
       const first = !painted;
-      painted = res;
+      // Zero keyword hits on a multi-word query, with a librarian that has not
+      // latched off: the search is still running, so say that, not "No results".
+      const waiting = first && !res.results.length && /\s/.test(String(query).trim())
+        && !HCSearch.librarianLatched();
+      painted = {
+        results: res.results, librarianCount: res.librarianCount,
+        notice: res.notice, waiting,
+      };
       // The librarian's picks lead; the divider marks where the plain local
       // index takes over. Both are absent on a host with no function, which is
       // what the GitHub Pages copy looks like — and it looks unchanged.
@@ -438,7 +458,11 @@
         ? '<p class="result-divider">More from the local index</p>' : '';
       const notice = res.notice ? `<p class="search-notice">${esc(res.notice)}</p>` : '';
       const rows = picks.map(searchRow).join('') + divider + rest.map(searchRow).join('');
-      content.innerHTML = `
+      content.innerHTML = waiting ? `
+      <div class="search-results">
+        <h1>Search</h1>
+        <p class="lead">No keyword matches — asking the librarian…</p>
+      </div>` : `
       <div class="search-results">
         <h1>Search</h1>
         <p class="lead">${res.results.length ? res.results.length : 'No'} result${res.results.length === 1 ? '' : 's'} for
