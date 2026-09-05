@@ -1,5 +1,5 @@
 {
- "note": "Done-bar 4: for each probe, the search bar's top-3 results must include the expected deep link. Defined in phase 0 from verified real content; verified in phase 2 when the code/CAD index ships.",
+ "note": "Done-bar 4: for each probe, the search bar's top-3 results must include the expected deep link. Defined in phase 0 from verified real content; verified in phase 2 when the code/CAD index ships. Probes with kind \"semantic\" (added 2026-09-04) carry the librarian's bar instead: every string in `expect` must appear within the top `top` RENDERED results, `fair` strings are acceptable extras rather than requirements, and the keyword engine finds nothing for these queries at all.",
  "probes": [
   {
    "q": "GeometricController",
@@ -51,6 +51,31 @@
    "q": "runpod",
    "expect": "#/tools/runpod-mcp",
    "kind": "agent tool"
+  },
+  {
+   "q": "ESC I2C firmware",
+   "kind": "semantic",
+   "top": 3,
+   "expect": [
+    "https://github.com/HippoCampusRobotics/esc",
+    "#/setup/hippocampus-bringup/afro-esc"
+   ],
+   "fair": [
+    "https://github.com/HippoCampusRobotics/tgy"
+   ],
+   "note": "Kyle 2026-09-04 — zero keyword hits under AND semantics; answered by the graph walk"
+  },
+  {
+   "q": "motor mount CAD",
+   "kind": "semantic",
+   "top": 3,
+   "expect": [
+    "https://github.com/FinnBreu/hippocampus-cad/blob/main/motor/propdrive_2835/mount_2835.ipt"
+   ],
+   "fair": [
+    "#/setup/hippocampus-bringup/motor-configuration"
+   ],
+   "note": "Kyle 2026-09-04 — zero keyword hits under AND semantics; the CAD part is reached through the graph walk"
   }
  ]
 }

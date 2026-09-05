@@ -24,7 +24,9 @@ Validates, failing loudly with actionable messages:
      http(s) URL;
   7. shell: index.html references exist; vendored marked.min.js matches its
      pinned sha256;
-  8. probes: data/search-probes.json carries exactly 10 well-formed probes;
+  8. probes: data/search-probes.json carries exactly 10 well-formed keyword probes
+     AND exactly 2 well-formed semantic probes (kind "semantic", a positive int
+     'top', a non-empty 'expect' list and a 'fair' list of routes/GitHub URLs);
   9. graph: the semantic layer under data/graph/ is in step with the registries —
      every registry page is a wiki.json node exactly once with the right kind and
      no stale ones, the 3 index views and one node per org repo, the counts block
@@ -985,12 +987,46 @@ def main():
                 f"on purpose, update MARKED_SHA256 in tools/check.py and note it in README.md")
 
     # ---- 8. probes ----
+    # Two kinds, two shapes, exact counts for both. A KEYWORD probe is one deep
+    # link the local engine must rank first; a SEMANTIC probe is a query the
+    # keyword engine cannot answer at all, so its bar is a LIST of links inside
+    # the top `top` rendered results. Splitting the check is not a relaxation:
+    # every keyword probe is still checked exactly as before, and the semantic
+    # ones are checked harder (types, a positive int, non-empty link lists whose
+    # every entry is a real route or GitHub URL).
     plist = probes["probes"]
-    if len(plist) != 10:
-        err(f"search-probes.json: expected exactly 10 probes, found {len(plist)}")
-    for p in plist:
-        if not (p.get("q") and p.get("expect") and p.get("kind")):
-            err(f"search-probes.json: malformed probe {p}")
+
+    def probe_href(value) -> bool:
+        return isinstance(value, str) and (
+            value.startswith("#/") or value.startswith("https://github.com/"))
+
+    keyword = [p for p in plist if p.get("kind") != "semantic"]
+    semantic = [p for p in plist if p.get("kind") == "semantic"]
+    if len(keyword) != 10:
+        err(f"search-probes.json: expected exactly 10 keyword probes, found {len(keyword)}")
+    if len(semantic) != 2:
+        err(f"search-probes.json: expected exactly 2 semantic probes, found {len(semantic)}")
+    for p in keyword:
+        if not (isinstance(p.get("q"), str) and p.get("q")
+                and isinstance(p.get("expect"), str) and p.get("expect")
+                and isinstance(p.get("kind"), str) and p.get("kind")):
+            err(f"search-probes.json: malformed keyword probe {p}")
+    for p in semantic:
+        q = p.get("q")
+        if not (isinstance(q, str) and q):
+            err(f"search-probes.json: malformed semantic probe {p}")
+        top = p.get("top")
+        if not (isinstance(top, int) and not isinstance(top, bool) and top > 0):
+            err(f"search-probes.json: semantic probe {q!r} needs a positive integer 'top', "
+                f"got {top!r}")
+        expect = p.get("expect")
+        if not (isinstance(expect, list) and expect and all(probe_href(s) for s in expect)):
+            err(f"search-probes.json: semantic probe {q!r} needs a non-empty 'expect' list of "
+                f"'#/…' routes or 'https://github.com/…' URLs, got {expect!r}")
+        fair = p.get("fair", [])
+        if not (isinstance(fair, list) and all(probe_href(s) for s in fair)):
+            err(f"search-probes.json: semantic probe {q!r} needs 'fair' to be a list of "
+                f"'#/…' routes or 'https://github.com/…' URLs, got {fair!r}")
 
     # ---- 9. graph: data/graph/** in step with the registries ----
     # Valid JSON is not a valid document: a list/scalar/null root must fail as

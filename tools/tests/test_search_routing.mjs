@@ -400,11 +400,20 @@ function realItems() {
    probe is satisfied either way, so the comparison drops the line anchor. */
 const fileOf = (href) => String(href).replace(/#L\d+$/, '');
 
+function readProbes() {
+  return JSON.parse(
+    fs.readFileSync(path.join(ROOT, 'data', 'search-probes.json'), 'utf8')).probes;
+}
+
 test('the ten search probes still land at rank 1 in the local engine', () => {
   const items = realItems();
   assert.ok(items.length > 1000, 'the real index loaded');
-  const probes = JSON.parse(
-    fs.readFileSync(path.join(ROOT, 'data', 'search-probes.json'), 'utf8')).probes;
+  /* The probe file carries two KINDS of probe now. This test owns the keyword
+     half and nothing else: the semantic probes are excluded by construction,
+     because the reason they exist is that the local engine finds nothing for
+     them (the test below pins exactly that). Filtering here is not a relaxation
+     — the count assertion still demands all ten keyword probes. */
+  const probes = readProbes().filter((p) => p.kind !== 'semantic');
   assert.equal(probes.length, 10);
   const misses = [];
   for (const p of probes) {
@@ -413,6 +422,48 @@ test('the ten search probes still land at rank 1 in the local engine', () => {
     if (rank !== 1) misses.push(`${p.q}: expected rank 1, got ${rank || 'not in results'}`);
   }
   assert.deepEqual(misses, [], 'the 10/10-at-rank-1 record is a protected surface');
+});
+
+/* The semantic probes are the client-side half of the done bar: strings a
+   browser must show for a query the keyword engine cannot answer at all. This
+   test spends zero quota and imports nothing from api/ — it only asks whether
+   the strings are (a) real and (b) genuinely unreachable locally. The server's
+   own suite proves the same strings RESOLVE through the function. */
+test('the semantic probes find nothing locally and name real targets', () => {
+  const items = realItems();
+  const semantic = readProbes().filter((p) => p.kind === 'semantic');
+  assert.equal(semantic.length, 2, 'both of Kyle 2026-09-04 probes are on disk');
+
+  const site = JSON.parse(fs.readFileSync(path.join(ROOT, 'search', 'site.json'), 'utf8'));
+  const routes = new Set(site.entries.map((e) => String(e.r)));
+  const cadShard = JSON.parse(fs.readFileSync(path.join(ROOT, 'search', 'cad.json'), 'utf8'));
+  const localHrefs = new Set(buildItems([cadShard]).map((it) => it.href));
+  const wiki = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'graph', 'wiki.json'), 'utf8'));
+  const repoUrls = new Set(wiki.nodes
+    .filter((n) => String(n.id || '').startsWith('repo:') && n.url)
+    .map((n) => String(n.url)));
+
+  const known = (href) => {
+    if (href.startsWith('#/')) return routes.has(href.split('@')[0]);
+    return localHrefs.has(href) || repoUrls.has(href);
+  };
+
+  for (const probe of semantic) {
+    assert.equal(typeof probe.q, 'string');
+    assert.ok(Number.isInteger(probe.top) && probe.top > 0, `${probe.q}: top is a positive int`);
+    assert.ok(Array.isArray(probe.expect) && probe.expect.length, `${probe.q}: expect is non-empty`);
+    assert.ok(Array.isArray(probe.fair || []), `${probe.q}: fair is a list`);
+
+    const { results } = searchItems(items, probe.q);
+    assert.deepEqual(results, [],
+      `${probe.q}: a semantic probe is one the AND-semantics keyword engine cannot answer`);
+
+    for (const href of [].concat(probe.expect, probe.fair || [])) {
+      assert.ok(/^#\//.test(href) || /^https:\/\/github\.com\//.test(href),
+        `${probe.q}: ${href} is a route or a github.com URL`);
+      assert.ok(known(href), `${probe.q}: ${href} must exist in the real site data`);
+    }
+  }
 });
 
 test('searchItems still returns the shape the librarian layer wraps', () => {
